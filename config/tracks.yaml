@@ -1,0 +1,67 @@
+# Every track the site offers, and the ONLY place they are defined.
+#
+# site/config.json is generated from this file (scripts/lib/yamlspec.py) and is
+# never edited by hand. Adding a track means adding an entry here and re-running
+# ./build.sh.
+#
+# Schema notes that are easy to get wrong:
+#   * `assemblyNames` in config.json comes from `assembly` here.
+#   * The session addresses a display by <track id>-<display type>; that id is
+#     DERIVED at build time, so do not hand-write displayId.
+#   * Feature displays take `renderer` (singular, a typed object);
+#     wiggle/manhattan displays take `renderers` (plural, keyed by type name).
+#     Mixing them silently yields an unconfigured renderer.
+#   * `adapter` locations are repo-relative; the generator rewrites them into
+#     UriLocation objects rooted at the site.
+
+defaults:
+  assembly: pombe
+
+tracks:
+  # ---------------------------------------------------------------- reference
+  - id: pombe_genes
+    name: PomBase genes
+    type: FeatureTrack
+    category: [Reference]
+    adapter:
+      type: Gff3TabixAdapter
+      gffGzLocation: data/annotation/pombe.gff.gz
+      index:
+        indexType: TBI
+        location: data/annotation/pombe.gff.gz.tbi
+    displays:
+      - type: LinearBasicDisplay
+        height: 200
+        renderer:
+          type: SvgFeatureRenderer      # alias for CanvasFeatureRenderer
+          # GFF3 attribute names arrive LOWERCASED -- PomBase's `ID=` and `Name=`
+          # become `id` and `name`. An expression naming them `ID`/`Name`/`gene_id`
+          # evaluates to the empty string, and the renderer then draws no label
+          # at all, with no error anywhere. Confirmed by clicking a feature and
+          # reading the detail panel.
+          labels:
+            name: jexl:get(feature,'name') || get(feature,'id')
+
+  # -------------------------------------------------------------------- data
+  # The DIT-HAP insertion tracks are added in the data-layer phase. Their shape
+  # is recorded here so the intent is not lost:
+  #
+  #   - id: hd_yes1
+  #     name: HD_DIT_HAP YES1 (LFC)
+  #     type: GWASTrack
+  #     category: [HD_DIT_HAP]
+  #     adapter:
+  #       type: GWASAdapter
+  #       bedGzLocation: data/tracks/hd_dit_hap/YES1.bed.gz
+  #       index: {indexType: TBI, location: data/tracks/hd_dit_hap/YES1.bed.gz.tbi}
+  #     displays:
+  #       - type: LinearManhattanDisplay
+  #         height: 160
+  #         minScore: -3
+  #         maxScore: 1
+  #         renderers:
+  #           LinearManhattanRenderer:
+  #             # `strand` arrives from @gmod/bed as the NUMBER 1 / -1, not as
+  #             # '+'/'-'. Comparing against characters silently paints every
+  #             # point the same colour.
+  #             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"

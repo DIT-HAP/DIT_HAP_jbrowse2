@@ -1,0 +1,48 @@
+# Reference assembly, and the provenance of everything derived from it.
+#
+# The site is self-contained: the bgzipped FASTA, its indexes and the bgzipped
+# annotation are committed under data/, so browsing never depends on an upstream
+# URL staying reachable. The upstream sources and their checksums are recorded
+# here so the shipped bytes can be re-derived and verified.
+
+assembly:
+  name: pombe
+  display_name: Schizosaccharomyces pombe
+
+  # Order in which sequences are presented (browser dropdown, whole-genome view).
+  # Deliberately NOT the FASTA file order, which happens to start with
+  # chr_II_telomeric_gap. Lengths are read from the FASTA index at build time,
+  # so this list cannot drift out of sync with the sequence data.
+  chrom_order:
+    - I
+    - II
+    - III
+    - mitochondrial
+    - mating_type_region
+    - chr_II_telomeric_gap
+
+# Where the assembly came from. `path` is read at build time only; the files are
+# never referenced over the network by the finished site.
+sources:
+  pombase_release: "2026-06-01"
+  base_dir: /data/c/yangyusheng_optimized/DIT_HAP_snakemake/resources/pombase_data/2026-06-01/genome_sequence_and_features
+  genome_fasta:
+    file: Schizosaccharomyces_pombe_all_chromosomes.fa
+    sha256: 6845ae254d944947309e2cae39a36caf411918dab6246973c0e58c8856d50a75
+    bytes: 13597169
+  annotation_gff3:
+    file: Schizosaccharomyces_pombe_all_chromosomes.gff3
+    sha256: d901aa7677bfd0210dcb89f953e1940ab86feca47d7419227f75716f43c5f0e2
+    bytes: 5319555
+
+# The analysis this browser visualises. Commits are the state of the upstream
+# repositories when this build was produced.
+upstream:
+  DIT_HAP_snakemake:
+    url: https://github.com/DIT-HAP/DIT_HAP_snakemake
+    commit: 5dc1ddd03230c1f53237355610d29abdf40d94ab
+    date: "2026-09-09"
+  DIT_HAP_analysis:
+    url: https://github.com/DIT-HAP/DIT_HAP_analysis
+    commit: 49500ff2067d3e43d90d39cd76d5f6f11a226007
+    date: "2026-10-14"

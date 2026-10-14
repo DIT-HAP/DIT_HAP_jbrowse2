@@ -1,0 +1,26 @@
+# The default session: what a first-time visitor sees.
+#
+# JBrowse 2 has no grid layout -- multiple views are stacked vertically as
+# full-width panels. This site therefore uses a SINGLE view whose
+# displayedRegions lists every sequence, which lays the chromosomes out side by
+# side under one coordinate system (the native JBrowse "whole genome" form).
+# A multi-region view renders correctly for both the manhattan and bigWig
+# renderers; that was verified against JBrowse 2 v4.3.0 before choosing it.
+#
+# Returning visitors keep whatever session their browser stored in IndexedDB,
+# so this only governs the first visit. site/docs links to per-chromosome
+# sessions for anyone who wants one sequence at full width.
+
+session:
+  name: DIT-HAP browser
+
+  views:
+    - id: genome
+      regions: all            # expands to assembly.chrom_order, in that order
+
+      # bpPerPx is stored as an absolute value, so a saved session cannot be
+      # "fit to width". Assume this many usable pixels: wider windows get a
+      # little slack, narrower ones clip the final sequence slightly.
+      assume_width_px: 1320
+
+      tracks: []              # filled in once the data layer exists

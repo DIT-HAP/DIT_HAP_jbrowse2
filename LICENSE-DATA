@@ -1,0 +1,24 @@
+Data licence: Creative Commons Attribution 4.0 International (CC BY 4.0)
+
+https://creativecommons.org/licenses/by/4.0/
+
+Applies to the data produced by this project: the track files under data/tracks/
+and the derived views built from them.
+
+You are free to share and adapt this material for any purpose, provided you
+give appropriate credit, link to the licence, and indicate if changes were
+made.
+
+Exceptions -- NOT covered by the above:
+
+  * data/assembly/ and data/annotation/
+    Reference sequence and annotation from PomBase (https://www.pombase.org/).
+    PomBase data is distributed under CC BY 4.0; the files here are unmodified
+    except for block-gzip compression and, for the annotation, a stable sort by
+    position. PomBase's own terms apply.
+
+  * Externally hosted datasets linked from the browser
+    Third-party data that this site loads from its original location is subject
+    to its own licence. Attribution for each is recorded on the site's
+    documentation page. In particular, the Kuang et al. 2017 meiosis time course
+    is published under CC BY-NC 4.0 and is used here by linking only.
