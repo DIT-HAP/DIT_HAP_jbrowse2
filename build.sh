@@ -44,8 +44,9 @@ cmd_serve() {
   local port="${PORT:-8080}"
   log "serving $REPO_ROOT/site on http://127.0.0.1:$port/"
   note "Ctrl-C to stop"
-  cd "$REPO_ROOT/site"
-  "$(require_tool python3)" -I -m http.server "$port" --bind 127.0.0.1
+  # Not `python3 -m http.server`: that ignores Range requests, and JBrowse reads
+  # every indexed file -- FASTA, GFF3, BAM -- by byte range. See scripts/serve.py.
+  "$(require_tool python3)" -I "$REPO_ROOT/scripts/serve.py" "$REPO_ROOT/site" --port "$port"
 }
 
 cmd_clean() {

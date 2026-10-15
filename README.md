@@ -48,17 +48,42 @@ TABIX=~/miniforge3/envs/bioinformatics/bin/tabix \
 `site` needs the [JBrowse CLI](https://www.npmjs.com/package/@jbrowse/cli)
 (`npm install -g @jbrowse/cli@4.3.0`) and PyYAML.
 
+`./build.sh serve` runs `scripts/serve.py`, **not** `python3 -m http.server`.
+That distinction matters: `http.server` ignores the `Range` header and answers
+`200` with the whole body, but JBrowse reads every indexed file by byte range.
+Handed the whole file, it slices from offset 0 and lands mid-BGZF-block, and the
+Sequence track fails with:
+
+```
+problem decompressing block: not a valid bgzf or gzip block
+```
+
+Feature tracks usually survive that, because their first reads are served from
+offset 0 anyway — the failure needs a read placed away from offset 0, such as a
+locus deep inside a chromosome. GitHub Pages honours `Range`, so this only ever
+affects local preview.
+
 ### Checking a build
 
 ```bash
 python3 scripts/check_site.py --url http://127.0.0.1:8080/
 ```
 
-This drives a headless browser and asserts two things a build can otherwise get
-wrong silently: that JBrowse **accepted** the default session (a malformed one
-is discarded in favour of an empty default without any visible error), and that
-every configured track actually renders. It needs `playwright`; CI does not run
-it.
+This drives a headless browser and asserts three things a build can otherwise
+get wrong silently:
+
+1. that JBrowse **accepted** the default session — a malformed one is discarded
+   in favour of an empty default with no visible error;
+2. that every configured track actually renders;
+3. that the Sequence track reads cleanly at a locus deep in a chromosome, which
+   is what catches a preview server that ignores `Range`.
+
+It needs `playwright`; CI does not run it.
+
+Note that `document.body.innerText` and a `canvas` count are **not** reliable
+probes for the Sequence track: it draws bases as DOM elements, not into a
+canvas, and a stale `Loading` node stays in the tree after the track has
+rendered. Screenshots and the track container's own text are.
 
 ## Layout
 
@@ -76,6 +101,7 @@ scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json   (the only writer)
   10_assembly.sh   reference layer
+  serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
   99_assemble_site.sh  site/
 vendor/plugins/  vendored JBrowse plugins

@@ -217,6 +217,46 @@ def main() -> int:
             print(f"  screenshot: {args.screenshot}")
         page.close()
 
+        # --- pass 3: the Sequence track, the only reader of .fai + .gzi -------
+        # This is the check for a server that ignores Range (notably
+        # `python3 -m http.server`, which answers 200 with the whole body).
+        # Feature tracks can survive that -- their first reads are served from
+        # offset 0 either way -- but the Sequence track resolves each read
+        # through the .gzi first, so whole-body answers put it in the middle of
+        # a BGZF block and it fails with
+        #     problem decompressing block: not a valid bgzf or gzip block
+        # The locus is deliberately deep into a chromosome: near offset 0 the
+        # wrong bytes can still happen to be the right ones.
+        print("pass 3: sequence track")
+        refseq = config["assemblies"][0]["sequence"]["trackId"]
+        region = config["defaultSession"]["views"][0]["displayedRegions"][0]
+        deep = max(0, region["end"] - 300_000)
+        loc = f"{region['refName']}:{deep + 1}-{deep + 300}"
+        spec = {"views": [{"assembly": assembly, "loc": loc,
+                           "type": "LinearGenomeView", "tracks": [refseq]}]}
+        url = args.url.rstrip("/") + "/?session=spec-" + json.dumps(spec, separators=(",", ":"))
+        page = browser.new_page(viewport={"width": 1400, "height": 700})
+        page.goto(url, wait_until="load", timeout=args.timeout)
+        page.wait_for_timeout(15_000)
+        # The container holds the rendered bases when it works and the error box
+        # when it does not, so one innerText read distinguishes the two.
+        box = page.evaluate(
+            """() => {
+              const el = document.querySelector('[data-testid^="trackRenderingContainer"]');
+              return el ? el.innerText : null;
+            }"""
+        )
+        if box is None:
+            failures.append("the Sequence track rendered no container")
+        elif "Error" in box:
+            failures.append(
+                f"Sequence track failed at {loc}: {box.strip()[:160]} "
+                "(most likely the server ignores Range; use ./build.sh serve)"
+            )
+        else:
+            print(f"  ok: sequence track clean at {loc}")
+        page.close()
+
         browser.close()
 
     print()
