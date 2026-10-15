@@ -103,14 +103,28 @@ PomBase release    ──┘                        data/assembly/, data/annotat
 `.github/workflows/pages.yml` runs `./build.sh site` on every push to `main` and
 publishes `site/` with `actions/deploy-pages`.
 
-Two settings must be in place on the repository, and neither can be set from
-inside the repository:
+**Settings → Pages → Build and deployment → Source** must be **GitHub Actions**.
+It cannot be set from inside the repository, so the very first deploy needs a
+human. Note that changing this setting does *not* re-run a workflow that has
+already failed: re-run it from the Actions tab, or push another commit.
 
-- **Settings → Pages → Build and deployment → Source** must be **GitHub
-  Actions**.
-- GitHub Pages serves files up to **100 MB each**, does not serve **Git LFS**
-  content, and applies a 1 GB soft limit to the published site. `build.sh`
-  warns if any file crosses the per-file limit.
+Limits that shape this repository, from GitHub's documentation:
+
+| limit | value | consequence here |
+| --- | --- | --- |
+| Git file size | **blocked above 100 MiB** (warned above 50 MiB) | applies to committed files, i.e. `data/`; `build.sh` warns |
+| published site | **1 GiB** | `build.sh` warns |
+| source repository | recommended 1 GiB | — |
+| deploy duration | **10 minutes** | irrelevant while `site` only assembles files |
+| bandwidth | soft 100 GiB/month | — |
+| builds | soft 10/hour, **not applied to custom Actions workflows** | one reason this uses Actions |
+| Pages availability | public repos on any plan; private repos need Pro/Team/Enterprise | this repo is public |
+
+A file over 100 MiB cannot be committed at all, so it cannot be shipped by
+copying it into the repository; Git LFS is the usual escape, but
+`actions/checkout` does not fetch LFS content unless told to, so the artifact
+would contain pointer files instead of data. Committing small build artefacts,
+as this repository does, avoids the question entirely.
 
 ## Provenance
 

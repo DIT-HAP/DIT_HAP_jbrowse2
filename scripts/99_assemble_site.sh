@@ -73,10 +73,17 @@ note "size:    $(du -sh "$SITE_DIR" | cut -f1)"
 note "data:    $(du -sh "$SITE_DIR/data" | cut -f1)"
 note "config:  $(wc -c < "$SITE_DIR/config.json") bytes"
 
-# GitHub Pages refuses any single file over 100 MB, and silently drops the
-# deploy when the whole site passes 1 GB.
-BIG="$(find "$SITE_DIR" -type f -size +100M -printf '%s\t%p\n' 2>/dev/null || true)"
+# GitHub documents a 1 GiB ceiling on a published Pages site. Anything that has
+# to be committed also has to clear Git's own 100 MiB per-file block, which is
+# what the data/ warning below is about -- site/ itself is never committed.
+SIZE_MB="$(du -sm "$SITE_DIR" | cut -f1)"
+if [ "$SIZE_MB" -gt 1024 ]; then
+  warn "site/ is ${SIZE_MB} MB, over the 1 GiB published-site limit"
+fi
+
+# Files in data/ are committed, and Git blocks anything over 100 MiB outright.
+BIG="$(find "$DATA_DIR" -type f -size +100M -printf '%s\t%p\n' 2>/dev/null || true)"
 if [ -n "$BIG" ]; then
-  warn "files over the 100 MB GitHub Pages per-file limit:"
+  warn "committed files over Git's 100 MiB block limit (cannot be pushed):"
   printf '      %s\n' $BIG
 fi
