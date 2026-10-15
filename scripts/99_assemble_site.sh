@@ -5,7 +5,8 @@
 # JBrowse 2 web release, plus four things layered on top of it:
 #   config.json  generated from config/*.yaml, then extended with the search index
 #   plugins/     vendored JBrowse plugins (committed under vendor/)
-#   data/        the reference layer and the tracks (committed under data/)
+#   data/        the reference layer, the tracks, and the mirrored third-party
+#                datasets (all committed under data/)
 #   trix/        the search index, rebuilt from data/annotation on every assembly
 #
 # The JBrowse version is pinned: an unpinned `jbrowse create` would silently
@@ -63,7 +64,7 @@ fi
 log "copying data/"
 rm -rf "$SITE_DIR/data"
 mkdir -p "$SITE_DIR/data"
-for sub in assembly annotation tracks; do
+for sub in assembly annotation tracks external; do
   [ -d "$DATA_DIR/$sub" ] || continue
   mkdir -p "$SITE_DIR/data/$sub"
   cp -R "$DATA_DIR/$sub/." "$SITE_DIR/data/$sub/"

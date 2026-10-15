@@ -654,11 +654,16 @@ tracks:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
 
   # ------------------------------------------------- Kuang et al. 2017 (IsoSeq)
-  # A published PacBio IsoSeq time course of meiosis, LINKED from PomBase rather
-  # than copied. Third-party data stays on the authoritative copy so the site
-  # carries the attribution and PomBase carries the bytes; a remote track needs
-  # the server to send `access-control-allow-origin` and `accept-ranges`, and
-  # PomBase sends `*` and `bytes` (verified with a range request returning 206).
+  # A published PacBio IsoSeq time course of meiosis, MIRRORED into
+  # data/external/kuang/ by scripts/15_external.sh rather than linked.
+  #
+  # These were linked until the round trip proved too slow to browse. PomBase
+  # serves at 70-130 kB/s, so a single 1 MB range read measured 8-14 s, and an
+  # AlignmentsTrack issues several per view. The same bytes from the site's own
+  # origin cost nothing. Mirroring redistributes someone else's data, which is
+  # why every track below keeps the citation, study accession, sample and source
+  # URL in its `metadata`, and config/external.yaml records the upstream URL and
+  # a checksum for each mirrored file.
   #
   # Scope, established by probing rather than from the paper: only rep2 exists --
   # every rep1 filename is a 404 -- and the series is 0,2,4,6,8,10 h. PomBase's
@@ -696,10 +701,10 @@ tracks:
       source: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_0.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_0.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_0.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_0.sorted.bam.bai
 
   - id: kuang2017_meiosis_2h
     name: Meiosis 2 h — Kuang et al. 2017
@@ -708,10 +713,10 @@ tracks:
     metadata: *kuang_metadata
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_2.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_2.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_2.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_2.sorted.bam.bai
 
   - id: kuang2017_meiosis_4h
     name: Meiosis 4 h — Kuang et al. 2017
@@ -720,10 +725,10 @@ tracks:
     metadata: *kuang_metadata
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_4.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_4.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_4.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_4.sorted.bam.bai
 
   - id: kuang2017_meiosis_6h
     name: Meiosis 6 h — Kuang et al. 2017
@@ -732,10 +737,10 @@ tracks:
     metadata: *kuang_metadata
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_6.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_6.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_6.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_6.sorted.bam.bai
 
   - id: kuang2017_meiosis_8h
     name: Meiosis 8 h — Kuang et al. 2017
@@ -744,10 +749,10 @@ tracks:
     metadata: *kuang_metadata
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_8.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_8.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_8.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_8.sorted.bam.bai
 
   - id: kuang2017_meiosis_10h
     name: Meiosis 10 h — Kuang et al. 2017
@@ -756,7 +761,7 @@ tracks:
     metadata: *kuang_metadata
     adapter:
       type: BamAdapter
-      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_10.sorted.bam
+      bamLocation: data/external/kuang/rep2_meiosis_hour_10.sorted.bam
       index:
         indexType: BAI
-        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_10.sorted.bam.bai
+        location: data/external/kuang/rep2_meiosis_hour_10.sorted.bam.bai

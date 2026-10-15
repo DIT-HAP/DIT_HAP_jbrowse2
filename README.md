@@ -37,8 +37,9 @@ selector, grouped by dataset.
 ./build.sh clean
 ```
 
-`data` needs `bgzip`, `tabix` and `samtools` on `PATH`. If they live in a conda
-environment that is not activated, point at them explicitly:
+`data` needs `bgzip`, `tabix`, `samtools` and `curl` on `PATH`. If the htslib
+tools live in a conda environment that is not activated, point at them
+explicitly:
 
 ```bash
 BGZIP=~/miniforge3/envs/bioinformatics/bin/bgzip \
@@ -94,6 +95,7 @@ rendered. Screenshots and the track container's own text are.
 config/          the only place tracks, sessions and app settings are defined
   assembly.yaml    reference assembly + upstream provenance and checksums
   datasets.yaml    which analysis datasets are published, and where they live
+  external.yaml    third-party datasets mirrored into data/external/
   tracks.yaml      track registry
   session.yaml     the default view, plus global plugin configuration
 data/            built artefacts, committed (the deployed site never
@@ -101,10 +103,12 @@ data/            built artefacts, committed (the deployed site never
   assembly/        bgzipped FASTA + .fai + .gzi
   annotation/      bgzipped GFF3 + .tbi
   tracks/          one BED (bgzip + tabix) per dataset / quantity / time point
+  external/        mirrored third-party datasets (the Kuang et al. BAMs)
 scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json
   10_assembly.sh   reference layer
+  15_external.sh   mirror third-party datasets
   20_tracks.py     release tables -> data/tracks/*.bed.gz
   serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
@@ -128,6 +132,7 @@ DIT_HAP_snakemake  ──┐
   release/insertion_level/*.tsv
                      ├─►  scripts/20_tracks.py ─►  data/tracks/*.bed.gz (+ .tbi)
 PomBase release    ──┘                           data/assembly/, data/annotation/
+PomBase external   ──►  scripts/15_external.sh ─►  data/external/kuang/*.bam (+ .bai)
                                                  │
                             config/*.yaml  ──────┼─►  scripts/lib/yamlspec.py
                                                  │            │
@@ -144,10 +149,11 @@ directory can shadow the imports).
 
 ## Tracks
 
-One track per dataset, quantity and time point — 40 of them, plus six linked
-external tracks, all added from the track selector and grouped first by dataset,
-then by `Curve fit` (the DR and DL parameters) or `LFC` (per time point). The
-DIT-HAP tracks are built from the release tables:
+One track per dataset, quantity and time point — 34 of them — plus the reference
+gene track and six mirrored external tracks, 41 in all. Every one is added from
+the track selector, grouped first by dataset, then by `Curve fit` (the DR and DL
+parameters) or `LFC` (per time point). The DIT-HAP tracks are built from the
+release tables:
 
 | source | column | track |
 | --- | --- | --- |
@@ -190,15 +196,28 @@ each fails silently:
 ### External tracks: Kuang et al. 2017
 
 Six `AlignmentsTrack`s of the published PacBio IsoSeq meiosis time course
-(PMID 27856494, GSE79802), **linked** from PomBase rather than copied. The bytes
-stay on the authoritative copy, which keeps the attribution honest and the
-repository small; `metadata` on each track carries the citation, sample and
-conditions into JBrowse's "About this track".
+(PMID 27856494, GSE79802), **mirrored** from PomBase into `data/external/kuang/`
+by `scripts/15_external.sh`.
 
-Linking only works if the remote server cooperates, and PomBase does: it sends
-`access-control-allow-origin: *` and `accept-ranges: bytes`, verified with a
-range request returning `206`. Because the BAMs are indexed, JBrowse fetches only
-the reads in view — the whole check suite, which loads all six, takes 43 s.
+They were linked until the round trip proved too slow to browse. PomBase serves
+at **70–130 kB/s**, so a single 1 MB range read measured 8–14 s, and an
+`AlignmentsTrack` issues several per view. Serving the same bytes from the site's
+own origin removes that wait. Measured A/B, one track over a 25 kb window at
+`I:2000000-2025000`: **2.7–3.0 s** mirrored, against **57.5 s** for the one
+remote track that finished painting at all — the other two were still blank
+after 90 s.
+
+Mirroring costs 164 MiB of repository (plus their indexes), the largest single
+file being 35 MiB — comfortably under Git's 100 MiB block — and takes the
+published site from 70 MB to 234 MB, well inside the 1 GiB Pages limit.
+
+Mirroring means redistributing someone else's data, so the attribution is not
+decoration. `metadata` on every track carries the citation, study accession,
+sample, growth conditions and source URL into JBrowse's "About this track", and
+`config/external.yaml` records the upstream URL, byte count and SHA-256 of each
+file. The download stage verifies those checksums and is idempotent: a file
+already present and matching is left alone, so re-running `./build.sh data`
+re-fetches nothing.
 
 Two things were established by probing rather than taken from the paper. Only
 **`rep2`** exists (every `rep1` filename is a 404) and the series is 0, 2, 4, 6,
@@ -207,16 +226,14 @@ the same lengths, with one exception: they say `mitochondrial` is 19,431 bp wher
 our FASTA says 19,433, so alignments on that one 19 kb sequence can be off by two
 bases. The three chromosomes are exact.
 
-Unlike the reference layer, these tracks are a live dependency on a third party.
-If PomBase moves the files the tracks fail to load; nothing here breaks, but the
-tracks go quiet.
-
 These tracks **do** have a zoom guard, unlike the manhattan ones, because it is a
 different mechanism: `fetchSizeLimit` (1 MB by default) rejects a single fetch
 that returns too many records, where `regionTooLarge` refuses a zoom level by
 feature density. The libraries are deep, so at a 25 kb window the 10 h track asks
 for 5.29 MB and offers "zoom in or force load" instead of rendering. That is
-stock JBrowse behaviour, and FORCE LOAD resolves it.
+stock JBrowse behaviour, and FORCE LOAD resolves it. Mirroring does not remove
+that guard — it counts records, not seconds — but the same 5.29 MB now arrives
+over loopback or a CDN instead of a 100 kB/s link.
 
 ## Gene search
 
@@ -291,5 +308,9 @@ coordinate system under every track.
 Code is MIT (see `LICENSE`). Data produced by this project is CC BY 4.0 (see
 `LICENSE-DATA`). Reference sequence and annotation are from
 [PomBase](https://www.pombase.org/) and remain subject to PomBase's terms.
-Third-party datasets linked from the browser keep their own licences; see the
-site's documentation page.
+
+The Kuang et al. 2017 BAMs under `data/external/kuang/` are **redistributed**
+here rather than only linked, so the tracks load at a usable speed. They remain
+their authors' data and are subject to whatever terms GSE79802 carries; the
+citation, sample and source URL are recorded on every track and in
+`config/external.yaml`.
