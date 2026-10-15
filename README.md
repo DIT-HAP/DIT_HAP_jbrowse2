@@ -23,9 +23,10 @@ reverse).
 <https://dit-hap.github.io/DIT_HAP_jbrowse2/>
 
 The browser opens on a whole-genome view with every sequence laid out side by
-side. Use the location box to jump to a gene (`I:99833..101431`) or a
-chromosome (`II`). Tracks are added from the track selector, grouped by
-dataset.
+side. Type a gene name into the search box (`cdc2`, `tlh1`, `SPNCRNA.2000`) and
+pick a result, or use the location box to jump straight to coordinates
+(`I:99833..101431`) or a chromosome (`II`). Tracks are added from the track
+selector, grouped by dataset.
 
 ## Building it locally
 
@@ -69,14 +70,16 @@ affects local preview.
 python3 scripts/check_site.py --url http://127.0.0.1:8080/
 ```
 
-This drives a headless browser and asserts three things a build can otherwise
+This drives a headless browser and asserts four things a build can otherwise
 get wrong silently:
 
 1. that JBrowse **accepted** the default session — a malformed one is discarded
    in favour of an empty default with no visible error;
 2. that every configured track actually renders;
 3. that the Sequence track reads cleanly at a locus deep in a chromosome, which
-   is what catches a preview server that ignores `Range`.
+   is what catches a preview server that ignores `Range`;
+4. that the search box resolves a gene name. It reads that name out of the
+   annotation itself, so a missing or stale trix index fails the check.
 
 It needs `playwright`; CI does not run it.
 
@@ -88,11 +91,11 @@ rendered. Screenshots and the track container's own text are.
 ## Layout
 
 ```
-config/          the only place tracks and sessions are defined
+config/          the only place tracks, sessions and app settings are defined
   assembly.yaml    reference assembly + upstream provenance and checksums
   datasets.yaml    which analysis datasets are published, and where they live
   tracks.yaml      track registry
-  session.yaml     the default view
+  session.yaml     the default view, plus global plugin configuration
 data/            built artefacts, committed (the deployed site never
                  reaches back to PomBase)
   assembly/        bgzipped FASTA + .fai + .gzi
@@ -100,18 +103,23 @@ data/            built artefacts, committed (the deployed site never
   tracks/          one BED (bgzip + tabix) per dataset / quantity / time point
 scripts/
   lib/common.sh    tool resolution and logging
-  lib/yamlspec.py  config/*.yaml -> site/config.json   (the only writer)
+  lib/yamlspec.py  config/*.yaml -> site/config.json
   10_assembly.sh   reference layer
   20_tracks.py     release tables -> data/tracks/*.bed.gz
   serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
-  99_assemble_site.sh  site/
+  99_assemble_site.sh  site/, including the search index
 vendor/plugins/  vendored JBrowse plugins
 site/            build artefact, gitignored
+  trix/            search index, rebuilt on every assembly
 ```
 
 `site/config.json` is generated. Editing it by hand has no effect, because the
-next build overwrites it — change `config/*.yaml` instead.
+next build overwrites it — change `config/*.yaml` instead. Two steps write it:
+`yamlspec.py` lays down the assemblies, tracks and session, then
+`jbrowse text-index` appends `aggregateTextSearchAdapters`. Letting the CLI own
+that one key is deliberate; it owns the schema, so a JBrowse upgrade cannot
+leave this repository maintaining a stale copy of it.
 
 ## Data flow
 
@@ -123,7 +131,11 @@ PomBase release    ──┘                           data/assembly/, data/anno
                                                  │
                             config/*.yaml  ──────┼─►  scripts/lib/yamlspec.py
                                                  │            │
-                                                 └────────────┴─► site/config.json
+                                                 │            ├─► site/config.json
+                                                 │            │
+                                                 └─► jbrowse text-index ─► site/trix/
+                                                              (also appends the search
+                                                               adapter to config.json)
 ```
 
 `./build.sh data` runs every `scripts/NN_*` stage in filename order; `.sh` stages
@@ -205,6 +217,38 @@ that returns too many records, where `regionTooLarge` refuses a zoom level by
 feature density. The libraries are deep, so at a 25 kb window the 10 h track asks
 for 5.29 MB and offers "zoom in or force load" instead of rendering. That is
 stock JBrowse behaviour, and FORCE LOAD resolves it.
+
+## Gene search
+
+The search box resolves gene names and systematic IDs. Of the annotation's
+12,685 genes, 4,529 carry a `Name` (`tlh1`, `cdc2`) and the remaining 8,156
+only an `ID` (`SPNCRNA.2000`), so the index is built over `Name,ID` and both
+kinds are findable — searching `cdc2` lists `cdc2`, `cdc20`, `cdc22`…, and
+picking one navigates to it.
+
+The index is built on every `./build.sh site`, from the committed
+`data/annotation/pombe.gff.gz`, rather than being committed itself. It is 3.6 MB
+of pure derivative, it takes about a second to rebuild, and building it each
+time keeps it in step with the GFF3 — a committed copy would quietly go stale
+the next time the annotation is updated.
+
+Search is also pass 4 of `scripts/check_site.py`, because its failure mode is
+invisible: with no index the box still renders and typing still opens a
+dropdown, it just never matches.
+
+## Track labels
+
+Track names are drawn in `offset` mode rather than JBrowse's `overlapping`
+default. Measured at a 1400px viewport with one gene track, the label sits at
+y=171 and is 15 px tall. `offset` starts the track body at y=193, below it;
+`overlapping` starts it at y=166, so the label is painted over the top of the
+track's own content — which is where the leftmost gene names sit.
+
+It is set in `config/session.yaml` under `configuration:`, which becomes
+config.json's top-level `configuration` block. That placement matters: the view
+resolves `view.trackLabels || <plugin config>`, so setting it there covers every
+view — including views inside a session a returning visitor already has stored
+in IndexedDB, which no change to `defaultSession` would reach.
 
 ## Deployment
 

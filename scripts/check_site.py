@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Headless end-to-end check of a built site.
 
-Two passes, because each catches failures the other cannot:
+Four passes, because each catches failures the others cannot:
 
   1. Load the site with no session in the URL, then read back the session
      JBrowse wrote to IndexedDB. This proves defaultSession was ACCEPTED --
@@ -11,6 +11,14 @@ Two passes, because each catches failures the other cannot:
   2. Load again with a ?session=spec- URL that switches every track on, then
      look for the track names and for ink on the canvases. This exercises
      adapter -> renderer -> data for real, which pass 1 never touches.
+
+  3. Load the Sequence track at a locus deep inside a chromosome. It is the
+     only reader of the .fai and .gzi indexes, so it is what catches a preview
+     server that ignores the Range header.
+
+  4. Type a gene name into the search box and require a result. A missing trix
+     index is invisible otherwise: the box still renders and typing still opens
+     a dropdown, it just never matches anything.
 
 The spec JSON in the URL must be RAW, not percent-encoded; encoding it makes
 JBrowse ignore the parameter entirely.
@@ -24,8 +32,10 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import gzip
 import json
 import pathlib
+import re
 import sys
 
 try:
@@ -86,6 +96,40 @@ def launch(browser_type, **kw):
         if pathlib.Path(cand).exists():
             return browser_type.launch(executable_path=cand, **kw)
     return browser_type.launch(**kw)
+
+
+def probe_term(config):
+    """A gene name to search for, taken from the annotation itself.
+
+    The index is built from this same GFF3, so a name read out of it must
+    resolve. Prefers `Name=` -- what a human would actually type -- and falls
+    back to `ID=` for the genes that carry only a systematic name.
+    """
+    for track in config.get("tracks") or []:
+        adapter = track.get("adapter") or {}
+        loc = adapter.get("gffGzLocation") or adapter.get("gffLocation")
+        if not isinstance(loc, dict):
+            continue
+        path = REPO_ROOT / (loc.get("uri") or "")
+        if not path.exists():
+            continue
+        opener = gzip.open if str(path).endswith(".gz") else open
+        with opener(path, "rt") as fh:
+            fallback = None
+            for i, line in enumerate(fh):
+                if i > 4000:
+                    break
+                if "\tgene\t" not in line:
+                    continue
+                named = re.search(r"(?:^|;)Name=([^;]+)", line)
+                if named:
+                    return named.group(1)
+                if fallback is None:
+                    ident = re.search(r"(?:^|;)ID=([^;]+)", line)
+                    fallback = ident.group(1) if ident else None
+            if fallback:
+                return fallback
+    return None
 
 
 def find_session(values):
@@ -256,6 +300,41 @@ def main() -> int:
         else:
             print(f"  ok: sequence track clean at {loc}")
         page.close()
+
+        # --- pass 4: gene search ---------------------------------------------
+        # Without an index the search box still renders and typing still opens a
+        # dropdown -- it simply never matches. So drive it with a name read out
+        # of the annotation the index was built from; if the index is missing or
+        # stale, that name stops resolving.
+        print("pass 4: gene search")
+        term = probe_term(config)
+        if term is None:
+            print("  skipped: no local annotation to take a probe gene from")
+        else:
+            page = browser.new_page(viewport={"width": 1400, "height": 700})
+            page.goto(args.url, wait_until="load", timeout=args.timeout)
+            page.wait_for_timeout(12_000)
+            box = page.locator('input[placeholder*="earch" i]').first
+            if box.count() == 0:
+                failures.append(
+                    "no search box -- the assembly has no text search adapter "
+                    "(the trix index was not built; run ./build.sh site)"
+                )
+            else:
+                box.click()
+                box.type(term, delay=50)
+                page.wait_for_timeout(5_000)
+                opts = page.evaluate(
+                    """() => [...document.querySelectorAll('[role="option"]')]
+                         .map(e => e.innerText.trim())"""
+                )
+                print(f"  {term!r} -> {opts[:6]}")
+                if not opts:
+                    failures.append(
+                        f"searching for {term!r} returned nothing; the trix index "
+                        "is missing or stale (rebuild with ./build.sh site)"
+                    )
+            page.close()
 
         browser.close()
 

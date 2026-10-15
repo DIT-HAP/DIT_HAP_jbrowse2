@@ -2,10 +2,11 @@
 # Assemble site/ -- the directory that is uploaded to GitHub Pages.
 #
 # site/ is a build artefact and is gitignored. It contains the unmodified
-# JBrowse 2 web release, plus three things layered on top of it:
-#   config.json  generated from config/*.yaml
+# JBrowse 2 web release, plus four things layered on top of it:
+#   config.json  generated from config/*.yaml, then extended with the search index
 #   plugins/     vendored JBrowse plugins (committed under vendor/)
 #   data/        the reference layer and the tracks (committed under data/)
+#   trix/        the search index, rebuilt from data/annotation on every assembly
 #
 # The JBrowse version is pinned: an unpinned `jbrowse create` would silently
 # change the site under any config that depends on renderer behaviour.
@@ -68,7 +69,34 @@ for sub in assembly annotation tracks; do
   cp -R "$DATA_DIR/$sub/." "$SITE_DIR/data/$sub/"
 done
 
-# --- 5. landing page ---------------------------------------------------------
+# --- 5. search index ---------------------------------------------------------
+# The search box needs a trix index of the annotation, and JBrowse only shows
+# the box when an assembly has one.
+#
+# Built here rather than committed: it is 3.7 MB derived entirely from
+# data/annotation/pombe.gff.gz, so rebuilding it on every site assembly keeps
+# it in step with the GFF3 instead of letting a committed copy rot. It costs
+# about a second.
+#
+# The CLI also appends `aggregateTextSearchAdapters` to config.json. Letting it
+# do so is deliberate -- it owns that schema, so a JBrowse upgrade cannot leave
+# this repository maintaining a stale copy of it.
+#
+# Runs AFTER the data copy above so the adapter's relative GFF3 path resolves
+# whether the CLI reads it from the repo root or from beside config.json, and
+# after yamlspec.py so it is appending to a config that already exists.
+log "indexing pombe_genes for search"
+rm -rf "$SITE_DIR/trix"
+(cd "$REPO_ROOT" && "$JBROWSE" text-index \
+  --out "$SITE_DIR/config.json" \
+  --tracks pombe_genes \
+  -a pombe \
+  --attributes Name,ID \
+  --force --quiet) \
+  || die "text-index failed. The site would build, but its search box would be dead."
+note "trix: $(du -sh "$SITE_DIR/trix" 2>/dev/null | cut -f1) in $(ls "$SITE_DIR/trix" 2>/dev/null | tr '\n' ' ')"
+
+# --- 6. landing page ---------------------------------------------------------
 if [ -f "$REPO_ROOT/docs/index_fragment.html" ]; then
   log "applying landing page fragment"
   "$PYTHON" -I "$REPO_ROOT/scripts/lib/inject_landing.py" \

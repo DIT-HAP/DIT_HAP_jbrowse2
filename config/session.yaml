@@ -11,6 +11,25 @@
 # so this only governs the first visit. site/docs links to per-chromosome
 # sessions for anyone who wants one sequence at full width.
 
+# Plugin configuration. Unlike `session:` below, this lands in config.json's
+# top-level "configuration", which JBrowse reads for EVERY view -- including
+# views inside a session a returning visitor already has stored.
+configuration:
+  LinearGenomeViewPlugin:
+    # Where a track's name is drawn. "overlapping" (the JBrowse default) paints
+    # it over the track's own canvas; "offset" reserves a row for it above the
+    # track; "hidden" drops it.
+    #
+    # Measured at a 1400px viewport with one gene track: offset starts the track
+    # body at y=193, overlapping starts it at y=166 and draws the label across
+    # the first 15px of data. Gene names land in that top-left corner, so under
+    # overlapping they sit on top of the leftmost features.
+    #
+    # It has to be set here rather than in a saved session: the view reads
+    # `view.trackLabels || <this>`, so a session that does not set it -- which
+    # is every session, ours included -- falls through to this value.
+    trackLabels: offset
+
 session:
   name: DIT-HAP browser
 

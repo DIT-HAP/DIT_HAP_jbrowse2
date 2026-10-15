@@ -2,8 +2,13 @@
 """Generate site/config.json from config/{assembly,tracks,session}.yaml.
 
 config.json is a build artefact. Editing it by hand would be silently
-overwritten on the next build, so all configuration lives in the YAML files and
-this script is the only writer.
+overwritten on the next build, so all configuration lives in the YAML files.
+
+This script writes it, and `jbrowse text-index` then appends one more key to it
+-- `aggregateTextSearchAdapters`, which powers the search box. That step lives
+in scripts/99_assemble_site.sh and is deliberately left to the CLI: it is the
+tool that owns the adapter schema, so letting it write the key means a JBrowse
+upgrade cannot leave us maintaining a stale copy of it.
 
 Two things here are easy to get wrong and are therefore done mechanically:
 
@@ -258,7 +263,8 @@ def main() -> int:
     config_dir = REPO_ROOT / "config"
     assembly_spec = load_yaml(config_dir / "assembly.yaml")["assembly"]
     tracks_spec = load_yaml(config_dir / "tracks.yaml")
-    session_spec = load_yaml(config_dir / "session.yaml")["session"]
+    session_yaml = load_yaml(config_dir / "session.yaml")
+    session_spec = session_yaml["session"]
 
     lengths = read_fai(REPO_ROOT / "data" / "assembly" / "pombe.fa.gz.fai")
     order = [c for c in assembly_spec["chrom_order"] if c in lengths]
@@ -277,7 +283,9 @@ def main() -> int:
         "plugins": [
             {"name": "GWAS", "url": "plugins/jbrowse-plugin-gwas.umd.js"},
         ],
-        "configuration": {},
+        # Global plugin configuration. Applied by JBrowse to every view, not
+        # just the default session's -- see config/session.yaml.
+        "configuration": session_yaml.get("configuration") or {},
         "defaultSession": build_session(
             session_spec, track_index, order, lengths, assembly_spec["name"]
         ),
