@@ -46,6 +46,19 @@ tracks:
   # The DIT-HAP insertion tracks are added in the data-layer phase. Their shape
   # is recorded here so the intent is not lost:
   #
+  # ZOOM GUARD -- read before wiring these up. At the whole-genome zoom of the
+  # default view (bpPerPx ~9500 over 12.6 Mb) JBrowse declines to fetch features
+  # and renders "Zoom in to see features or force load" instead. The test is
+  #     featureDensity(features/bp) * bpPerPx  >  maxFeatureScreenDensity
+  # with maxFeatureScreenDensity defaulting to 0.3 features/pixel. PomBase's
+  # ~7000 genes are ~5.3 features/pixel there, hence the message; fetchSizeLimit
+  # (1 MB) is NOT what is biting. A display setting `userBpPerPxLimit` overrides
+  # the density test with a flat `bpPerPx > userBpPerPxLimit` check, so setting
+  # it above the default view's bpPerPx force-renders the whole genome -- which
+  # is what a genome-wide manhattan plot wants, at the cost of the full fetch.
+  # Decision (2026-10-15): leave the guard on until the real BED files exist,
+  # then measure point count and file size to pick the limit rather than guess.
+  #
   #   - id: hd_yes1
   #     name: HD_DIT_HAP YES1 (LFC)
   #     type: GWASTrack

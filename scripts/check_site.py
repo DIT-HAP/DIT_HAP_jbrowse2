@@ -129,6 +129,37 @@ def main() -> int:
         if "Fatal error" in text or "JBrowse Error" in text:
             failures.append("page reported an error on load")
 
+        # A malformed displayedRegion (most easily: a missing assemblyName) does
+        # not raise, does not log, and still writes a well-formed session to
+        # IndexedDB -- the page just never leaves "Loading". Asserting only on
+        # the stored session therefore passes on a site that shows nothing.
+        #
+        # "No canvas" on its own does NOT mean broken, though. A
+        # LinearGenomeView draws its ruler as DOM text and paints no canvas in
+        # two legitimate states, each with its own notice:
+        #   "No tracks active"          -- the session has no tracks
+        #   "Zoom in to see features"   -- JBrowse refuses to fetch a whole
+        #                                  chromosome of features at genome-wide
+        #                                  zoom and waits for a zoom or FORCE LOAD
+        # So the default view is stuck only if it shows NEITHER notice AND no
+        # canvas -- which is precisely the assemblyName failure.
+        canvases = page.evaluate("() => document.querySelectorAll('canvas').length")
+        notices = ("No tracks active", "Zoom in to see features")
+        notice = next((n for n in notices if n in text), None)
+        declared = len(config["defaultSession"]["views"][0].get("tracks") or [])
+        if canvases == 0:
+            if notice is None:
+                failures.append(
+                    "default view rendered nothing at all -- no canvas and no "
+                    "track notice; the page is stuck on Loading (check that "
+                    "every displayedRegion carries assemblyName)"
+                )
+            else:
+                print(f"  no canvas; the track box says {notice!r} (not a fault)")
+                if declared == 0:
+                    print("  note: defaultSession declares no tracks")
+        print(f"  canvases in default view: {canvases}")
+
         session = find_session(page.evaluate(READ_SESSION))
         if session is None:
             failures.append("no session snapshot reached IndexedDB")

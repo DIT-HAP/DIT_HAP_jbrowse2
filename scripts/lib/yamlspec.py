@@ -166,6 +166,7 @@ def build_session(
     track_index: dict,
     order: list[str],
     lengths: dict[str, int],
+    assembly_name: str,
 ) -> dict:
     views = []
     for view in spec.get("views") or []:
@@ -178,8 +179,20 @@ def build_session(
                 raise SystemExit(f"session view {view['id']!r} names unknown regions {unknown}")
             refs = list(want)
 
+        # assemblyName is NOT optional. Without it the view cannot resolve which
+        # assembly its regions belong to, and JBrowse sits on its "Loading"
+        # spinner forever -- no exception, no failed request, nothing in the
+        # console, and the session still reaches IndexedDB looking perfectly
+        # well-formed. Cost an afternoon to find; it is the first thing to check
+        # if the default view ever fails to appear.
         regions = [
-            {"refName": ref, "start": 0, "end": lengths[ref], "reversed": False}
+            {
+                "refName": ref,
+                "start": 0,
+                "end": lengths[ref],
+                "reversed": False,
+                "assemblyName": assembly_name,
+            }
             for ref in refs
         ]
         total = sum(lengths[ref] for ref in refs)
@@ -253,7 +266,9 @@ def main() -> int:
             {"name": "GWAS", "url": "plugins/jbrowse-plugin-gwas.umd.js"},
         ],
         "configuration": {},
-        "defaultSession": build_session(session_spec, track_index, order, lengths),
+        "defaultSession": build_session(
+            session_spec, track_index, order, lengths, assembly_spec["name"]
+        ),
     }
 
     out = pathlib.Path(args.out).resolve()

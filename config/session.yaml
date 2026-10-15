@@ -23,4 +23,13 @@ session:
       # little slack, narrower ones clip the final sequence slightly.
       assume_width_px: 1320
 
-      tracks: []              # filled in once the data layer exists
+      # Track ids from config/tracks.yaml, in display order. A view with no
+      # tracks is legitimate but lands the visitor on an empty ruler reading
+      # "No tracks active", so the reference genes go in by default and the
+      # DIT-HAP insertion tracks are switched on from the track selector.
+      #
+      # Expect this track to read "Zoom in to see features or force load" at
+      # the whole-genome zoom below -- that is JBrowse's density guard, not a
+      # broken track. See the ZOOM GUARD note in config/tracks.yaml.
+      tracks:
+        - pombe_genes
