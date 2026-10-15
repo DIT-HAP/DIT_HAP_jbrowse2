@@ -90,6 +90,7 @@ rendered. Screenshots and the track container's own text are.
 ```
 config/          the only place tracks and sessions are defined
   assembly.yaml    reference assembly + upstream provenance and checksums
+  datasets.yaml    which analysis datasets are published, and where they live
   tracks.yaml      track registry
   session.yaml     the default view
 data/            built artefacts, committed (the deployed site never
@@ -101,6 +102,7 @@ scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json   (the only writer)
   10_assembly.sh   reference layer
+  20_tracks.py     release tables -> data/tracks/*.bed.gz
   serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
   99_assemble_site.sh  site/
@@ -116,13 +118,61 @@ next build overwrites it — change `config/*.yaml` instead.
 ```
 DIT_HAP_snakemake  ──┐
   release/insertion_level/*.tsv
-                     ├─►  scripts/20_*.py  ─►  data/tracks/*.bed.gz (+ .tbi)
-PomBase release    ──┘                        data/assembly/, data/annotation/
-                                              │
-                            config/*.yaml  ───┼─►  scripts/lib/yamlspec.py
-                                              │            │
-                                              └────────────┴─► site/config.json
+                     ├─►  scripts/20_tracks.py ─►  data/tracks/*.bed.gz (+ .tbi)
+PomBase release    ──┘                           data/assembly/, data/annotation/
+                                                 │
+                            config/*.yaml  ──────┼─►  scripts/lib/yamlspec.py
+                                                 │            │
+                                                 └────────────┴─► site/config.json
 ```
+
+`./build.sh data` runs every `scripts/NN_*` stage in filename order; `.sh` stages
+run under bash and `.py` stages under python3 (`-I`, so nothing in the current
+directory can shadow the imports).
+
+## Tracks
+
+One track per dataset, quantity and time point — 34 of them, all added from the
+track selector and grouped first by dataset, then by `Curve fit` (the DR and DL
+parameters) or `LFC` (per time point). They are built from the release tables:
+
+| source | column | track |
+| --- | --- | --- |
+| `fitting_results.tsv` | `DR` | Depletion rate |
+| `fitting_results.tsv` | `DL` | Depletion lag |
+| `LFC.tsv` | one per time point | Log2 fold change *time point* |
+
+The time point the fold changes are measured against (`YES0` for most datasets,
+`0h` for LD haploid, `Spikein0` for the control) has an LFC of exactly zero at
+every insertion. It is a flat line by construction, not a result, so it gets no
+track; `20_tracks.py` drops any time point whose values are all identical rather
+than naming the baseline column, so a renamed baseline is still handled.
+
+Datasets are listed in `config/datasets.yaml`. `HD_diploid` is deliberately
+absent: it appears in `DIT_HAP_analysis/config/datasets.yaml` but has no
+`release/` tree on disk.
+
+Four details below were settled by measurement rather than assumption, because
+each fails silently:
+
+- **Coordinates are 0-based.** The pipeline writes `Coordinate = R1_Ref_Start + 4`
+  for the `+` strand and `R1_Ref_End` for the `-`, both straight out of pysam. So
+  the `TTAA` motif occupies `[Coordinate-4, Coordinate)`. Pulling those four bases
+  out of the shipped FASTA returns `TTAA` for 96.2% of sampled rows — the same
+  share as the `Target` column — where a 1-based reading scores 1.3%.
+- **`minScore`/`maxScore` are honoured**, even though the vendored display
+  defaults to `autoscale: local`. Rendering one BED under `-2.2..1.1` and again
+  under `-100..100` gives a scattered cloud and a flat line. The ranges are fixed
+  and shared across datasets so time points and datasets can be compared by eye;
+  points outside the domain clamp to the edge rather than erroring.
+- **`strand` reaches the renderer as the number `1`/`-1`**, not `'+'`/`'-'`, so
+  the colour expression compares against numbers. Comparing against characters
+  paints every point the same colour, with no error.
+- **These tracks have no density guard.** Unlike the feature tracks, the vendored
+  `LinearManhattanDisplay` overrides `regionTooLarge` to return `false`, so they
+  never show "Zoom in to see features" and draw at any zoom. At whole-genome zoom
+  each enabled track downloads its entire BED — 18 tracks at once moved 24.9 MB —
+  where at gene scale the same tracks fetch a few kB each.
 
 ## Deployment
 

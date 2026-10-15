@@ -36,6 +36,15 @@ else
   note "pass --force to re-download"
 fi
 
+# `jbrowse create` ships test_data/ -- the human and yeast sample files its demo
+# tracks point at, about 55 MB. Our generated config.json replaces the demo
+# config wholesale, so nothing references them and they would only be published.
+# Removed unconditionally: this has to happen whether or not the app was
+# re-downloaded just now.
+if [ -d "$SITE_DIR/test_data" ]; then
+  rm -rf "$SITE_DIR/test_data"
+fi
+
 # --- 2. config.json from the YAML sources -----------------------------------
 log "generating config.json"
 "$PYTHON" -I "$REPO_ROOT/scripts/lib/yamlspec.py" --out "$SITE_DIR/config.json"

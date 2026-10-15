@@ -1,0 +1,46 @@
+# Which DIT-HAP analysis datasets the browser publishes, and where their release
+# tables live.
+#
+# scripts/20_tracks.py reads this file and writes one bgzipped + tabixed BED per
+# dataset / quantity / time point under data/tracks/. The `tracks:` entries in
+# config/tracks.yaml name exactly those files, so the two must agree: adding a
+# dataset here means regenerating the data AND adding its track entries.
+#
+# The source is read at build time only. The finished site is self-contained and
+# never reaches back to the analysis directory.
+
+source:
+  # `projects/<dataset>/<release_subdir>/` under this root.
+  root: /data/c/yangyusheng_optimized/DIT_HAP_snakemake/projects
+  release_subdir: release/insertion_level
+
+  # Per-dataset release tables. Both are keyed by (Chr, Coordinate, Strand);
+  # coordinates are 0-based (see the note in config/tracks.yaml).
+  fitting_file: fitting_results.tsv # -> DR and DL
+  lfc_file: LFC.tsv # -> one track per timepoint column
+
+# `label` is the display name and the track-selector category. `id` is both the
+# directory name under projects/ and the on-disk directory name under
+# data/tracks/ (lowercased).
+#
+# Every dataset listed here is published. HD_diploid is absent on purpose: it is
+# registered in DIT_HAP_analysis/config/datasets.yaml but has no release/ tree on
+# disk, so a build would fail rather than skip it.
+datasets:
+  - id: HD_DIT_HAP
+    label: HD DIT-HAP
+    fitting: true
+  - id: LD_DIT_HAP
+    label: LD DIT-HAP
+    fitting: true
+  - id: LD_haploid
+    label: LD haploid
+    fitting: true
+  - id: Spore2YES6_1328
+    label: Spore-to-YES6 1328
+    fitting: true
+  # A calibration control: it has LFC time points but no curve fit, so the
+  # registry marks it has_time_points: false and there is no fitting_results.tsv.
+  - id: Spikein
+    label: Spike-in calibration
+    fitting: false

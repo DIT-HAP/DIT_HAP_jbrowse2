@@ -28,9 +28,18 @@ data_stages() {
 
 cmd_data() {
   local s
+  # Resolved here and exported so every stage agrees on which htslib is in use:
+  # resolve_tool searches conda envs that may not be on PATH, and the python
+  # stages have no way to repeat that search.
+  export BGZIP TABIX
+  BGZIP="$(require_tool bgzip)"
+  TABIX="$(require_tool tabix)"
   for s in $(data_stages); do
     log "$(basename "$s")"
-    bash "$s"
+    case "$s" in
+      *.py) "$(require_tool python3)" -I "$s" ;;
+      *)    bash "$s" ;;
+    esac
     echo
   done
 }
