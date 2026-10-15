@@ -59,7 +59,13 @@ def to_location(value, data_base: str):
     """Repo-relative path -> a JBrowse UriLocation object."""
     if isinstance(value, dict):
         return value
-    return {"uri": f"{data_base}{value}", "locationType": "UriLocation"}
+    # An absolute URL is already a complete location. Prefixing the site's data
+    # base onto it yields a nonsense relative path like "https:/..." nested
+    # inside the site, which fails at fetch time with nothing said. Remote
+    # tracks use full URLs deliberately: third-party data stays on the
+    # authoritative copy rather than being redistributed from here.
+    uri = value if "://" in value else f"{data_base}{value}"
+    return {"uri": uri, "locationType": "UriLocation"}
 
 
 def rewrite_locations(node, data_base: str):
@@ -136,6 +142,12 @@ def build_tracks(spec: dict, assembly_name: str, data_base: str) -> tuple[list[d
         if entry.get("category"):
             category = entry["category"]
             track["category"] = [category] if isinstance(category, str) else list(category)
+
+        # Free-form provenance (source, citation, sample, conditions). JBrowse
+        # shows it under the track's "About this track", which is where the
+        # attribution for linked third-party data has to live.
+        if entry.get("metadata"):
+            track["metadata"] = entry["metadata"]
 
         track["adapter"] = rewrite_locations(entry["adapter"], data_base)
 

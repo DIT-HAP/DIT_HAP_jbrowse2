@@ -652,3 +652,111 @@ tracks:
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
+
+  # ------------------------------------------------- Kuang et al. 2017 (IsoSeq)
+  # A published PacBio IsoSeq time course of meiosis, LINKED from PomBase rather
+  # than copied. Third-party data stays on the authoritative copy so the site
+  # carries the attribution and PomBase carries the bytes; a remote track needs
+  # the server to send `access-control-allow-origin` and `accept-ranges`, and
+  # PomBase sends `*` and `bytes` (verified with a range request returning 206).
+  #
+  # Scope, established by probing rather than from the paper: only rep2 exists --
+  # every rep1 filename is a 404 -- and the series is 0,2,4,6,8,10 h. PomBase's
+  # own ids are 27856494-rep2_meiosis_hour_<N>_sorted; these follow this
+  # repository's naming, and the track ids are what a saved session stores, so
+  # renaming one orphans that entry in every visitor's saved session.
+  #
+  # The BAM headers name the same six sequences as our assembly at the same
+  # lengths, so alignments land in the right place. The single exception is
+  # mitochondrial: the BAMs say 19,431 bp where our FASTA says 19,433. Only that
+  # one 19 kb sequence can be off, and only by the two bases.
+  #
+  # PomBase's entries carry no `displays`, so these do not either -- JBrowse
+  # supplies the stock alignments display, which is the one that behaves.
+  #
+  # These DO have the fetch-size guard that the manhattan tracks lack, because it
+  # is a different mechanism: `fetchSizeLimit` (1 MB default) rejects a single
+  # fetch that returns too many records, where `regionTooLarge` refuses a whole
+  # zoom level by feature density. The IsoSeq libraries are deep, so at a 25 kb
+  # window the 10 h track asks for 5.29 MB and shows "Requested too much data --
+  # zoom in or force load" rather than rendering. That is the stock behaviour and
+  # the FORCE LOAD button resolves it; raising `fetchSizeLimit` here would just
+  # move the same bytes without asking.
+
+  - id: kuang2017_meiosis_0h
+    name: Meiosis 0 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: &kuang_metadata
+      citation: Kuang et al. 2017, PMID 27856494
+      assay: PacBio IsoSeq, aligned with GMAP
+      study: GSE79802
+      conditions: EMM, nitrogen starvation
+      sample: mat1-PΔ17/mat1-M-smt-o his2/+ leu1-32/+ ura4/+ ade6-M210/ade6-M216
+      source: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_0.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_0.sorted.bam.bai
+
+  - id: kuang2017_meiosis_2h
+    name: Meiosis 2 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: *kuang_metadata
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_2.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_2.sorted.bam.bai
+
+  - id: kuang2017_meiosis_4h
+    name: Meiosis 4 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: *kuang_metadata
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_4.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_4.sorted.bam.bai
+
+  - id: kuang2017_meiosis_6h
+    name: Meiosis 6 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: *kuang_metadata
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_6.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_6.sorted.bam.bai
+
+  - id: kuang2017_meiosis_8h
+    name: Meiosis 8 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: *kuang_metadata
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_8.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_8.sorted.bam.bai
+
+  - id: kuang2017_meiosis_10h
+    name: Meiosis 10 h — Kuang et al. 2017
+    type: AlignmentsTrack
+    category: [Kuang et al. 2017, Meiosis time course]
+    metadata: *kuang_metadata
+    adapter:
+      type: BamAdapter
+      bamLocation: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_10.sorted.bam
+      index:
+        indexType: BAI
+        location: https://www.pombase.org/external_datasets/Kuang_IsoSeq_2017_PMID_27856494/rep2_meiosis_hour_10.sorted.bam.bai

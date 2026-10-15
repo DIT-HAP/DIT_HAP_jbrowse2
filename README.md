@@ -132,9 +132,10 @@ directory can shadow the imports).
 
 ## Tracks
 
-One track per dataset, quantity and time point — 34 of them, all added from the
-track selector and grouped first by dataset, then by `Curve fit` (the DR and DL
-parameters) or `LFC` (per time point). They are built from the release tables:
+One track per dataset, quantity and time point — 40 of them, plus six linked
+external tracks, all added from the track selector and grouped first by dataset,
+then by `Curve fit` (the DR and DL parameters) or `LFC` (per time point). The
+DIT-HAP tracks are built from the release tables:
 
 | source | column | track |
 | --- | --- | --- |
@@ -173,6 +174,37 @@ each fails silently:
   never show "Zoom in to see features" and draw at any zoom. At whole-genome zoom
   each enabled track downloads its entire BED — 18 tracks at once moved 24.9 MB —
   where at gene scale the same tracks fetch a few kB each.
+
+### External tracks: Kuang et al. 2017
+
+Six `AlignmentsTrack`s of the published PacBio IsoSeq meiosis time course
+(PMID 27856494, GSE79802), **linked** from PomBase rather than copied. The bytes
+stay on the authoritative copy, which keeps the attribution honest and the
+repository small; `metadata` on each track carries the citation, sample and
+conditions into JBrowse's "About this track".
+
+Linking only works if the remote server cooperates, and PomBase does: it sends
+`access-control-allow-origin: *` and `accept-ranges: bytes`, verified with a
+range request returning `206`. Because the BAMs are indexed, JBrowse fetches only
+the reads in view — the whole check suite, which loads all six, takes 43 s.
+
+Two things were established by probing rather than taken from the paper. Only
+**`rep2`** exists (every `rep1` filename is a 404) and the series is 0, 2, 4, 6,
+8 and 10 h. And the BAM headers name the same six sequences as our assembly at
+the same lengths, with one exception: they say `mitochondrial` is 19,431 bp where
+our FASTA says 19,433, so alignments on that one 19 kb sequence can be off by two
+bases. The three chromosomes are exact.
+
+Unlike the reference layer, these tracks are a live dependency on a third party.
+If PomBase moves the files the tracks fail to load; nothing here breaks, but the
+tracks go quiet.
+
+These tracks **do** have a zoom guard, unlike the manhattan ones, because it is a
+different mechanism: `fetchSizeLimit` (1 MB by default) rejects a single fetch
+that returns too many records, where `regionTooLarge` refuses a zoom level by
+feature density. The libraries are deep, so at a 25 kb window the 10 h track asks
+for 5.29 MB and offers "zoom in or force load" instead of rendering. That is
+stock JBrowse behaviour, and FORCE LOAD resolves it.
 
 ## Deployment
 
