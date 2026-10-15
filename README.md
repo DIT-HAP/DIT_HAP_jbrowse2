@@ -230,6 +230,18 @@ the same lengths, with one exception: they say `mitochondrial` is 19,431 bp wher
 our FASTA says 19,433, so alignments on that one 19 kb sequence can be off by two
 bases. The three chromosomes are exact.
 
+Reads are coloured by strand by default (pink forward, lavender reverse) rather
+than JBrowse's flat grey, because on IsoSeq data the strand is the thing a reader
+is usually following. That is one config slot, `colorBy: {type: strand}`, set on
+the pileup sub-display — but it cannot be written on its own. Every display
+config schema is declared with `explicitIdentifier: 'displayId'`, so a nested
+display block is an MST `types.identifier` and the config tree will not build
+without it; a `pileupDisplay` block carrying only `colorBy` throws, and reports
+itself as `Reaction[AlignmentsDisplayConfig] Error: no containing track found`
+from an autorun on the half-built tree. The value is ignored — the parent
+overwrites it with `${parentDisplayId}_${lowerPanelType}_xyz` — so all six tracks
+share one string. The full note is in `config/tracks.yaml`.
+
 These tracks **do** have a zoom guard, unlike the manhattan ones, because it is a
 different mechanism: `fetchSizeLimit` (1 MB by default) rejects a single fetch
 that returns too many records, where `regionTooLarge` refuses a zoom level by
