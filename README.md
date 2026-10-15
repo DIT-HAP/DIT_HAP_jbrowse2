@@ -113,7 +113,8 @@ scripts/
   serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
   99_assemble_site.sh  site/, including the search index
-vendor/plugins/  vendored JBrowse plugins
+vendor/plugins/  vendored third-party JBrowse plugins, byte-for-byte upstream
+plugins/         our own JBrowse plugins (plain JS, no build step)
 site/            build artefact, gitignored
   trix/            search index, rebuilt on every assembly
 ```
@@ -149,8 +150,8 @@ directory can shadow the imports).
 
 ## Tracks
 
-One track per dataset, quantity and time point — 34 of them — plus the reference
-gene track and six mirrored external tracks, 41 in all. Every one is added from
+One track per dataset, quantity and time point — 29 of them — plus the reference
+gene track and six mirrored external tracks, 36 in all. Every one is added from
 the track selector, grouped first by dataset, then by `Curve fit` (the DR and DL
 parameters) or `LFC` (per time point). The DIT-HAP tracks are built from the
 release tables:
@@ -162,14 +163,17 @@ release tables:
 | `LFC.tsv` | one per time point | Log2 fold change *time point* |
 
 The time point the fold changes are measured against (`YES0` for most datasets,
-`0h` for LD haploid, `Spikein0` for the control) has an LFC of exactly zero at
-every insertion. It is a flat line by construction, not a result, so it gets no
-track; `20_tracks.py` drops any time point whose values are all identical rather
-than naming the baseline column, so a renamed baseline is still handled.
+`0h` for LD haploid) has an LFC of exactly zero at every insertion. It is a flat
+line by construction, not a result, so it gets no track; `20_tracks.py` drops any
+time point whose values are all identical rather than naming the baseline column,
+so a renamed baseline is still handled.
 
 Datasets are listed in `config/datasets.yaml`. `HD_diploid` is deliberately
 absent: it appears in `DIT_HAP_analysis/config/datasets.yaml` but has no
-`release/` tree on disk.
+`release/` tree on disk. `Spikein` was published until it was dropped — it was a
+calibration control, so it carried no result of its own, and it was the single
+widest LFC outlier in the release, meaning it alone set the shared LFC axis for
+every other dataset.
 
 Four details below were settled by measurement rather than assumption, because
 each fails silently:
@@ -266,6 +270,78 @@ config.json's top-level `configuration` block. That placement matters: the view
 resolves `view.trackLabels || <plugin config>`, so setting it there covers every
 view — including views inside a session a returning visitor already has stored
 in IndexedDB, which no change to `defaultSession` would reach.
+
+## The y-axis on the manhattan tracks
+
+Every DIT-HAP track draws a y-axis with tick labels, so `DR`, `DL` and `LFC` can
+be read off the browser rather than only compared between tracks.
+
+Nothing in `config/*.yaml` turns this on, and the reason is worth recording,
+because the obvious candidates all look like they should work and none of them
+do. Core draws the axis in `WiggleDisplayComponent`:
+
+```jsx
+const { stats, height, graphType } = model
+...
+{stats && graphType ? <svg ...><YScaleBar model={model} /></svg> : null}
+```
+
+and `graphType` is a getter on the wiggle display model that is true only for
+`XYPlotRenderer` and `LinePlotRenderer`. The vendored `LinearManhattanDisplay`
+overrides `rendererTypeName` to `LinearManhattanRenderer`, so `graphType` is
+false and the axis is never mounted. It also declares
+`get needsScalebar() { return true }` — which is **dead code in v4.3.0**:
+`needsScalebar` appears nowhere in the v4.3.0 source, an earlier 2.x core read it
+here, and the plugin was written against that. There is no config slot for the
+axis either; `BaseLinearDisplay` offers only `maxFeatureScreenDensity`,
+`fetchSizeLimit`, `height`, `mouseover` and `jexlFilters`, and
+`SharedWiggleConfigSchema` only `autoscale`, `minimalTicks`, `minScore`,
+`maxScore`, `numStdDev`, `scaleType` and `inverted`. Track height is not a gate
+either: it changes which ticks are drawn, not whether the bar is.
+
+So it takes a plugin. `plugins/gwas-axis.js` is ~30 lines of plain JS with no
+build step, and it overrides that one getter through the public
+`Core-extendPluggableElement` extension point — the same mechanism core plugins
+use on each other, and the same shape core's own handlers use. The vendored
+bundle is not patched: it is still byte-for-byte upstream, and
+`scripts/99_assemble_site.sh` copies `vendor/plugins/` and `plugins/` side by
+side into `site/plugins/`.
+
+Claiming `graphType` is less of a lie than it looks. For a single-source wiggle
+display it is read in exactly three places: the axis condition above, the SVG
+export's copy of it, and the track menu, where it gates "Show inverted" and
+"Show cross hatches". The renderer never reads it. And core already treats the
+flag as "this display wants a y-axis" rather than "this is a line plot":
+`SNPCoverageDisplay` declares `get graphType() { return true }` outright.
+
+### Why the plugin is not simply upgraded to a version that has it
+
+Worth writing down, because it looks like the obvious fix and it is not.
+
+`get graphType()` was added to the plugin in 2.2.0 and **removed again** in
+commit `7d0ac2de` ("Inline WiggleBaseRenderer concept into plugin", #24), which
+is what shipped as 2.1.2 and everything after. It has not come back: the current
+`master` of `GMOD/jbrowse-plugin-gwas` still has `needsScalebar` and no
+`graphType`. So no version of the plugin both works here and draws the axis.
+
+The version numbers are also not in publish order, which is the trap. 2.2.0 was
+published 2025-11-18, *between* 2.1.1 and 2.1.2, and the author then carried on
+with 2.1.3, 2.1.4, 2.1.6. `npm dist-tags` says `latest: 2.1.6` — which is both
+the newest publish (2026-03-14) and the one vendored here.
+
+Pinning to 2.2.0 does not merely lose the axis, it stops the site loading at all.
+2.2.0 was built against `@jbrowse/core ^3.3.0` and extends
+`WigglePlugin.exports.WiggleBaseRenderer`; that name **does not exist anywhere in
+JBrowse 4.3.0** (grep the app bundle: zero hits). The class extends `undefined`
+and the app dies on a blank page with
+`TypeError: Class extends value undefined is not a constructor or null` thrown
+from `createPluggableElements`. 2.1.6 replaced that with an inlined renderer and
+so needs nothing from the host but `LinearWiggleDisplayReactComponent`, which
+4.3.0 does export. Confirmed by swapping the bundle in and loading it.
+
+So the plugin stays at 2.1.6 and `plugins/gwas-axis.js` restores the one getter
+#24 dropped. If the plugin is ever bumped, re-check this file: the override is
+harmless if `graphType` comes back, but it would then be redundant.
 
 ## Deployment
 

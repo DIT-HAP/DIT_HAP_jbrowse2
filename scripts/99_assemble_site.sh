@@ -52,11 +52,15 @@ log "generating config.json"
 "$PYTHON" -I "$REPO_ROOT/scripts/lib/yamlspec.py" --out "$SITE_DIR/config.json"
 
 # --- 3. plugins --------------------------------------------------------------
-if [ -d "$REPO_ROOT/vendor/plugins" ]; then
-  mkdir -p "$SITE_DIR/plugins"
-  cp -f "$REPO_ROOT"/vendor/plugins/*.js "$SITE_DIR/plugins/"
-  log "plugins: $(cd "$SITE_DIR/plugins" && ls *.js 2>/dev/null | tr '\n' ' ')"
-fi
+# Two sources, one destination. vendor/plugins/ is upstream bundles, committed
+# byte-for-byte as downloaded; plugins/ is our own hand-written JS, no build
+# step. Both are served as-is and both are named by config.json's `plugins`.
+mkdir -p "$SITE_DIR/plugins"
+for src in "$REPO_ROOT/vendor/plugins" "$REPO_ROOT/plugins"; do
+  [ -d "$src" ] || continue
+  cp -f "$src"/*.js "$SITE_DIR/plugins/"
+done
+log "plugins: $(cd "$SITE_DIR/plugins" && ls *.js 2>/dev/null | tr '\n' ' ')"
 
 # --- 4. data -----------------------------------------------------------------
 # Copied rather than symlinked: the Pages artifact action does not carry

@@ -216,38 +216,78 @@ def build_session(
         bp_per_px = round(total / float(view.get("assume_width_px", 1320)), 4)
 
         track_refs = []
-        for tid in view.get("tracks") or []:
+        for entry in view.get("tracks") or []:
+            # A bare string is the common case; a mapping adds per-track session
+            # state, of which `pinned` is currently the only one used.
+            tid = entry["id"] if isinstance(entry, dict) else entry
+            opts = entry if isinstance(entry, dict) else {}
             if tid not in track_index:
                 raise SystemExit(f"session view {view['id']!r} names unknown track {tid!r}")
             info = track_index[tid]
-            track_refs.append(
-                {
-                    "id": f"{view['id']}-{tid}",
-                    "type": info["type"],
-                    "configuration": tid,
-                    "displays": [
-                        {"id": f"{view['id']}-{d['configuration']}", **d}
-                        for d in info["displays"]
-                    ],
-                }
-            )
-
-        views.append(
-            {
-                "id": view["id"],
-                "type": "LinearGenomeView",
-                "bpPerPx": bp_per_px,
-                "displayedRegions": regions,
-                "tracks": track_refs,
+            ref = {
+                "id": f"{view['id']}-{tid}",
+                "type": info["type"],
+                "configuration": tid,
+                "displays": [
+                    {"id": f"{view['id']}-{d['configuration']}", **d}
+                    for d in info["displays"]
+                ],
             }
-        )
+            # The track state model carries `pinned` (default false) and its
+            # postProcessSnapshot emits the key ONLY when true, so writing it
+            # here is the same thing the "Track order -> Pin track" menu item
+            # does. A pinned track stays put when the view scrolls.
+            if opts.get("pinned"):
+                ref["pinned"] = True
+            track_refs.append(ref)
 
-    return {
+        out_view = {
+            "id": view["id"],
+            "type": "LinearGenomeView",
+            "bpPerPx": bp_per_px,
+            "displayedRegions": regions,
+            "tracks": track_refs,
+        }
+        # Optional view state, copied through verbatim from session.yaml's
+        # `state:` block. LinearGenomeView keys such as showCenterLine are plain
+        # view properties, and a value in the session snapshot wins over the
+        # model's own default -- which for showCenterLine is read out of
+        # localStorage, so it would otherwise differ per browser.
+        #
+        # Not validated here: a key the view model does not know is rejected by
+        # MST at load, and JBrowse's failure mode for a bad defaultSession is to
+        # discard it silently and show an empty one. check_site.py pass 1 is what
+        # catches that.
+        for key, value in (view.get("state") or {}).items():
+            out_view[key] = value
+        views.append(out_view)
+
+    # Drawers to have open on first load, from session.yaml's `widgets:` block.
+    #
+    # The session keeps these as two maps: `widgets` holds the state models, and
+    # `activeWidgets` holds the ids of the ones actually showing. A widget in the
+    # first but not the second exists without being displayed, so both entries
+    # are needed -- that pair is exactly what LinearGenomeView's
+    # activateTrackSelector() builds with addWidget() + showWidget().
+    #
+    # `view` is a safeReference, which serialises as the referenced view's id.
+    widgets: dict[str, dict] = {}
+    active_widgets: dict[str, str] = {}
+    for widget in spec.get("widgets") or []:
+        wid = widget["id"]
+        widgets[wid] = dict(widget)
+        active_widgets[wid] = wid
+
+    session = {
         "id": "dit-hap-default",
         "name": spec.get("name", "DIT-HAP browser"),
         "views": views,
         "sessionPlugins": [],
     }
+    if widgets:
+        session["widgets"] = widgets
+        session["activeWidgets"] = active_widgets
+    return session
 
 
 def main() -> int:
@@ -280,8 +320,17 @@ def main() -> int:
     config = {
         "assemblies": [build_assembly(assembly_spec, lengths, order)],
         "tracks": tracks,
+        # Loaded in order, both from site/plugins/. The second one extends the
+        # first: it overrides a getter on LinearManhattanDisplay so core draws
+        # the y-axis scale bar that the plugin's renderer does not. See
+        # plugins/gwas-axis.js for why that is a plugin and not a config slot.
+        #
+        # `name` is not a label: the loader looks for a global called
+        # `JBrowsePlugin<name>`, so these two strings and the two files' global
+        # names have to agree.
         "plugins": [
             {"name": "GWAS", "url": "plugins/jbrowse-plugin-gwas.umd.js"},
+            {"name": "GWASAxis", "url": "plugins/gwas-axis.js"},
         ],
         # Global plugin configuration. Applied by JBrowse to every view, not
         # just the default session's -- see config/session.yaml.

@@ -50,7 +50,7 @@ tracks:
   #
   # One track per dataset / quantity / time point, from the release tables:
   # fitting_results.tsv -> DR, DL; LFC.tsv -> one per non-baseline time point.
-  # The baseline time point (YES0, or 0h / Spikein0) has an LFC of exactly zero
+  # The baseline time point (YES0, or 0h for LD haploid) has an LFC of exactly zero
   # at every insertion, so it is a flat line by construction and gets no track.
   #
   # Coordinates: the pipeline writes `Coordinate = R1_Ref_Start + 4` for the +
@@ -103,8 +103,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: 0
-        maxScore: 16.2
+        minScore: -1
+        maxScore: 16
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -120,7 +120,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -137,7 +137,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -154,7 +154,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -171,7 +171,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -205,8 +205,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: 0
-        maxScore: 16.2
+        minScore: -1
+        maxScore: 16
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -222,7 +222,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -239,7 +239,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -256,7 +256,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -273,7 +273,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -307,8 +307,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: 0
-        maxScore: 16.2
+        minScore: -1
+        maxScore: 16
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -324,7 +324,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -341,7 +341,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -358,7 +358,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -375,7 +375,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -392,7 +392,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -409,7 +409,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -426,7 +426,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -460,8 +460,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: 0
-        maxScore: 16.2
+        minScore: -1
+        maxScore: 16
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -477,7 +477,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -494,7 +494,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -511,7 +511,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -528,7 +528,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -545,7 +545,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:
@@ -562,92 +562,7 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -8
-        maxScore: 3
-        renderers:
-          LinearManhattanRenderer:
-            color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
-
-  - id: spikein_lfc_spikein1
-    name: Log2 fold change Spikein1
-    type: GWASTrack
-    category: [Spike-in calibration, LFC]
-    adapter:
-      type: GWASAdapter
-      bedGzLocation: data/tracks/spikein/LFC_Spikein1.bed.gz
-      index: {indexType: TBI, location: data/tracks/spikein/LFC_Spikein1.bed.gz.tbi}
-    displays:
-      - type: LinearManhattanDisplay
-        height: 160
-        minScore: -8
-        maxScore: 3
-        renderers:
-          LinearManhattanRenderer:
-            color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
-
-  - id: spikein_lfc_spikein2
-    name: Log2 fold change Spikein2
-    type: GWASTrack
-    category: [Spike-in calibration, LFC]
-    adapter:
-      type: GWASAdapter
-      bedGzLocation: data/tracks/spikein/LFC_Spikein2.bed.gz
-      index: {indexType: TBI, location: data/tracks/spikein/LFC_Spikein2.bed.gz.tbi}
-    displays:
-      - type: LinearManhattanDisplay
-        height: 160
-        minScore: -8
-        maxScore: 3
-        renderers:
-          LinearManhattanRenderer:
-            color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
-
-  - id: spikein_lfc_spikein3
-    name: Log2 fold change Spikein3
-    type: GWASTrack
-    category: [Spike-in calibration, LFC]
-    adapter:
-      type: GWASAdapter
-      bedGzLocation: data/tracks/spikein/LFC_Spikein3.bed.gz
-      index: {indexType: TBI, location: data/tracks/spikein/LFC_Spikein3.bed.gz.tbi}
-    displays:
-      - type: LinearManhattanDisplay
-        height: 160
-        minScore: -8
-        maxScore: 3
-        renderers:
-          LinearManhattanRenderer:
-            color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
-
-  - id: spikein_lfc_spikein4
-    name: Log2 fold change Spikein4
-    type: GWASTrack
-    category: [Spike-in calibration, LFC]
-    adapter:
-      type: GWASAdapter
-      bedGzLocation: data/tracks/spikein/LFC_Spikein4.bed.gz
-      index: {indexType: TBI, location: data/tracks/spikein/LFC_Spikein4.bed.gz.tbi}
-    displays:
-      - type: LinearManhattanDisplay
-        height: 160
-        minScore: -8
-        maxScore: 3
-        renderers:
-          LinearManhattanRenderer:
-            color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
-
-  - id: spikein_lfc_spikein5
-    name: Log2 fold change Spikein5
-    type: GWASTrack
-    category: [Spike-in calibration, LFC]
-    adapter:
-      type: GWASAdapter
-      bedGzLocation: data/tracks/spikein/LFC_Spikein5.bed.gz
-      index: {indexType: TBI, location: data/tracks/spikein/LFC_Spikein5.bed.gz.tbi}
-    displays:
-      - type: LinearManhattanDisplay
-        height: 160
-        minScore: -8
+        minScore: -12
         maxScore: 3
         renderers:
           LinearManhattanRenderer:

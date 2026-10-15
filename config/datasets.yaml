@@ -23,9 +23,17 @@ source:
 # directory name under projects/ and the on-disk directory name under
 # data/tracks/ (lowercased).
 #
+# `fitting: true` says the dataset has a fitting_results.tsv, so it gets DR and
+# DL tracks. Every dataset below currently has one; `fitting: false` is for a
+# dataset with LFC time points but no curve fit, and 20_tracks.py treats a
+# `true` with the file missing as a build error rather than quietly skipping it.
+#
 # Every dataset listed here is published. HD_diploid is absent on purpose: it is
 # registered in DIT_HAP_analysis/config/datasets.yaml but has no release/ tree on
-# disk, so a build would fail rather than skip it.
+# disk, so a build would fail rather than skip it. Spike-in calibration was
+# published until it was dropped: as a calibration control it carried no result
+# of its own, and it was the single widest LFC outlier in the release, so it
+# alone set the shared LFC axis for every other dataset.
 datasets:
   - id: HD_DIT_HAP
     label: HD DIT-HAP
@@ -39,8 +47,3 @@ datasets:
   - id: Spore2YES6_1328
     label: Spore-to-YES6 1328
     fitting: true
-  # A calibration control: it has LFC time points but no curve fit, so the
-  # registry marks it has_time_points: false and there is no fitting_results.tsv.
-  - id: Spikein
-    label: Spike-in calibration
-    fitting: false

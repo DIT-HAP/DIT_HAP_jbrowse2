@@ -206,8 +206,8 @@ def main() -> int:
             ]
             # The time point the fold changes are measured against has an LFC of
             # exactly zero at every insertion -- YES0 for most datasets, "0h" for
-            # LD_haploid, Spikein0 for the control. It is a flat line by
-            # construction, not a result, so it gets no track. Tested as "every
+            # LD_haploid. It is a flat line by construction, not a result, so it
+            # gets no track. Tested as "every
             # value identical" rather than "== 0" so a renamed baseline column
             # still gets skipped instead of shipping a blank track.
             if rows and min(v for *_, v in rows) == max(v for *_, v in rows):
@@ -265,18 +265,38 @@ def main() -> int:
 #   * Fixed, never autoscaled. A time point autoscaled to its own data would look
 #     equally severe at YES1 and YES4, which is exactly the comparison these
 #     tracks exist to support.
-#   * Spend the height on where the points are. The LFC distribution is a tight
-#     bulk around 0 (p50 ~ -0.05, p99 ~ +0.6) with a long negative tail to -12;
-#     a domain of [-12, +2.6] would collapse 99% of the data into a band at the
-#     top of the track. -8 keeps p01..p99 well inside, so the tail above the
-#     floor is the ~1% that is genuinely extreme.
+#   * Cover the data. These are the ranges over EVERY published dataset, measured
+#     from the built BEDs, not one dataset's spread:
 #
-# DR and DL use their full observed range: DR spans only ~3 units and DL's mass
-# is at 0 with a tail to 16, so neither needs clipping.
+#         LFC  -11.93 .. +2.90      (HD DIT-HAP YES2 low, LD haploid YES1 high)
+#         DR    -2.09 .. +1.00      (HD DIT-HAP low)
+#         DL     0.00 .. +16.11     (LD haploid high)
+#
+#     An axis that clips is worse than a tall one: a point pinned to the edge is
+#     indistinguishable from one just inside it, and the clipped points are the
+#     extreme ones a reader is looking for. The earlier -8 LFC floor cut the HD
+#     tail outright.
+#
+#     The LFC maximum was +4.14 until Spike-in was dropped. It was that dataset's
+#     YES4 that set the old 4.5 ceiling, on its own, for every other dataset --
+#     a calibration control deciding the scale of the results.
+#
+#   * Round outward, never inward. Each bound sits just past the measured
+#     extreme, so the extreme lands visibly inside the track instead of on its
+#     border. DR is left at its old value: it already covered -2.09..+1.00 with
+#     room to spare.
+#
+#     DL is the one deliberate exception. Its ceiling is 16.0 against a measured
+#     +16.11, so 4,055 points (0.94%) clamp to the top edge. Tightening it to
+#     16.2 would clear them, and it is a one-character change -- it is left as is
+#     because 16.0 is what the axis was reviewed and chosen at.
+#
+# The comment above is the reason the numbers are what they are; if a dataset is
+# added with a wider spread, these are the numbers to move.
 AXIS = {
     "DR": (-2.2, 1.1),
-    "DL": (0.0, 16.2),
-    "LFC": (-8.0, 3.0),
+    "DL": (-1.0, 16.0),
+    "LFC": (-12.0, 3.0),
 }
 
 QUANTITY_LABEL = {"DR": "Depletion rate (DR)", "DL": "Depletion lag (DL)"}

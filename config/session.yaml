@@ -33,6 +33,22 @@ configuration:
 session:
   name: DIT-HAP browser
 
+  # Drawers open when the session first loads.
+  #
+  # The track selector is the only way to switch on a DIT-HAP track, and they
+  # are all behind a hierarchical list, so a visitor who does not know it is
+  # there sees one gene track and no hint that 35 more exist. Opening it by
+  # default is the difference between a landing page and a dead end.
+  #
+  # `view` is a view id from `views:` below. A widget naming a view that does
+  # not exist is rejected at load, and JBrowse's failure mode for a bad
+  # defaultSession is to discard the whole thing silently in favour of an empty
+  # one -- check_site.py pass 1 is what catches that.
+  widgets:
+    - id: hierarchicalTrackSelector
+      type: HierarchicalTrackSelectorWidget
+      view: genome
+
   views:
     - id: genome
       regions: all            # expands to assembly.chrom_order, in that order
@@ -42,13 +58,35 @@ session:
       # little slack, narrower ones clip the final sequence slightly.
       assume_width_px: 1320
 
-      # Track ids from config/tracks.yaml, in display order. A view with no
-      # tracks is legitimate but lands the visitor on an empty ruler reading
-      # "No tracks active", so the reference genes go in by default and the
-      # DIT-HAP insertion tracks are switched on from the track selector.
+      # Raw LinearGenomeView properties, copied into the session view verbatim
+      # by scripts/lib/yamlspec.py. A typo here is not caught by the generator:
+      # MST rejects an unknown key at load and JBrowse discards the whole
+      # defaultSession without saying so, falling back to an empty view.
+      # check_site.py pass 1 exists for exactly that failure.
+      state:
+        # A vertical line down the middle of the view, so a locus can be read
+        # off against the ruler without hunting for it. Off by default in
+        # JBrowse, where the default is read from localStorage
+        # ("lgv-showCenterLine") and so differs per browser; setting it here
+        # makes it the same for everyone.
+        showCenterLine: true
+
+      # Tracks from config/tracks.yaml, in display order. A bare string is the
+      # usual form; a mapping adds session state, here `pinned`.
+      #
+      # A view with no tracks is legitimate but lands the visitor on an empty
+      # ruler reading "No tracks active", so the reference genes go in by
+      # default and the DIT-HAP insertion tracks are switched on from the track
+      # selector.
+      #
+      # pombe_genes is PINNED so it stays visible when the insertion tracks are
+      # scrolled through -- it is the reference every other track is read
+      # against, and losing it off the top of the view makes a locus
+      # unidentifiable. Same thing as the "Track order -> Pin track" menu item.
       #
       # Expect this track to read "Zoom in to see features or force load" at
       # the whole-genome zoom below -- that is JBrowse's density guard, not a
       # broken track. See the ZOOM GUARD note in config/tracks.yaml.
       tracks:
-        - pombe_genes
+        - id: pombe_genes
+          pinned: true
