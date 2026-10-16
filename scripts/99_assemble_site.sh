@@ -55,6 +55,11 @@ log "generating config.json"
 # Two sources, one destination. vendor/plugins/ is upstream bundles, committed
 # byte-for-byte as downloaded; plugins/ is our own hand-written JS, no build
 # step. Both are served as-is and both are named by config.json's `plugins`.
+#
+# Emptied first, like data/ and trix/ below: a plugin that is renamed or dropped
+# would otherwise be left behind in the built site, still published, and -- since
+# only config.json names plugins -- invisible until someone reads the directory.
+rm -rf "$SITE_DIR/plugins"
 mkdir -p "$SITE_DIR/plugins"
 for src in "$REPO_ROOT/vendor/plugins" "$REPO_ROOT/plugins"; do
   [ -d "$src" ] || continue

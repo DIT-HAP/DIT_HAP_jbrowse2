@@ -62,10 +62,14 @@ tracks:
   #
   # minScore/maxScore are FIXED and shared across datasets so time points and
   # datasets can be compared by eye; see the AXIS table in scripts/20_tracks.py
-  # for how the values were chosen. They ARE honoured: the vendored display
-  # defaults to autoscale: local, and rendering one BED under -2.2..1.1 and again
-  # under -100..100 gives a scattered cloud and a flat line respectively. Points
-  # outside the domain clamp to the edge rather than erroring.
+  # for how the values were chosen. They are honoured, but not as clamps: the
+  # display computes its domain in getNiceDomain({domain, bounds}) and a bound
+  # REPLACES the data-derived value rather than trimming it --
+  #   if (r !== undefined && r !== Number.MIN_VALUE) l = r
+  # so the axis is exactly what is configured here, rounded outward to nice
+  # ticks by d3 (a configured -12..3 draws as [-12, 4]). Confirmed by rendering
+  # one BED under two ranges: a scattered cloud under one, a flat line under
+  # -100..100. Points outside the domain clamp to the edge rather than erroring.
   #
   # NO DENSITY GUARD, unlike the feature tracks. The vendored
   # LinearManhattanDisplay overrides `regionTooLarge` to return false, so these
@@ -86,8 +90,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -2.2
-        maxScore: 1.1
+        minScore: -2
+        maxScore: 0.5
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -188,8 +192,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -2.2
-        maxScore: 1.1
+        minScore: -2
+        maxScore: 0.5
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -290,8 +294,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -2.2
-        maxScore: 1.1
+        minScore: -2
+        maxScore: 0.5
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -443,8 +447,8 @@ tracks:
     displays:
       - type: LinearManhattanDisplay
         height: 160
-        minScore: -2.2
-        maxScore: 1.1
+        minScore: -2
+        maxScore: 0.5
         renderers:
           LinearManhattanRenderer:
             color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
@@ -714,3 +718,155 @@ tracks:
       index:
         indexType: BAI
         location: data/external/kuang/rep2_meiosis_hour_10.sorted.bam.bai
+
+  # ---------------------------------------------- Kuang coverage, by strand
+  # Read depth over the same six time points, reduced from the BAMs above by
+  # scripts/25_kuang_coverage.py into twelve BigWigs -- one per time point per
+  # direction -- and shown as two tracks.
+  #
+  # WHY TWO TRACKS AND NOT ONE WITH TWELVE SOURCES. The two are read AGAINST
+  # each other, not as a series. The question a strand split answers is whether
+  # a locus is transcribed from the strand it should be -- antisense signal at
+  # a meiotic gene -- and in one twelve-row lane that comparison is across the
+  # middle of a very tall track. Side by side, the same locus in the same colour
+  # is two rows apart.
+  #
+  # The colours are ColorBrewer's Blues indexed by time point -- palest at 0 h,
+  # darkest at 10 h -- so 2 h is the same colour in both tracks and the ramp
+  # itself reads as the time course. Being the same in both directions is the
+  # point: the eye can compare a bar in the forward track with the bar above it
+  # without consulting a key. The ramp is sampled over 0.35..1.0 of its range,
+  # not all of it: its own light end is invisible on this white page. Script
+  # docstring has the rest, including the direction change from the viridis
+  # ramp these replaced.
+  #
+  # THE REVERSE TRACK IS NOT MEASURED SEPARATELY. `samtools depth` in samtools
+  # 1.14 has only -g/-G, which remove and add flags to its default filter; there
+  # is no "include only" form, so the forward strand is selected directly and
+  # the reverse strand is total minus forward. Depth is a count of reads over a
+  # position and every read is on exactly one strand, so this is exact -- 58,753
+  # + 58,744 = 117,497 on hour 0. See the script's docstring.
+  #
+  # THE AXIS AUTOSCALES, and it has to. These tracks carried a fixed 0..300
+  # until it was measured against the alternative; the numbers below are why it
+  # is gone. The distribution is too wide for any fixed axis: the median bin is
+  # 0.1, the 90th percentile ~80, and the maximum 129,470, a pileup inside 200 bp
+  # of chromosome I near isp3. Any single scale is wrong at one zoom or the other.
+  #
+  # `autoscale: localsd` is mean +/- N sigma over the visible region, not the
+  # region's min/max. The difference is the whole point here: the default
+  # `local` uses the extremes, so the isp3 pileup alone sets the domain. Measured
+  # on the built site with both tracks on:
+  #
+  #                     gene scale (20 kb)      whole chromosome I
+  #   autoscale local   fwd [0-300]             fwd [0-130000]  <- flat line
+  #                     rev [0-4000]            rev [0-20000]   <- flat line
+  #   autoscale localsd fwd [0-200]             fwd [0-1300]    <- readable
+  #                     rev [0-1200]            rev [0-350]     <- readable
+  #
+  # N IS 5, NOT THE DEFAULT 3, and that was raised for the reason these tracks
+  # exist. At 3 sigma the ceiling sits at mean+3sd, which on a distribution this
+  # skewed is BELOW the top of the data, so the tallest bars in a gene-scale view
+  # hit the ceiling and clamp there -- and the renderer marks exactly that with a
+  # red 1px clip marker on top of the bar. Measured at I:3,090,000-3,110,000
+  # (20 kb, all six hours, forward): mean 24.0, sd 53.4, max 294, so mean+3sd is
+  # 184 and 3.81% of bins clear it. At 5 sigma the ceiling is 291 -- the tallest
+  # bar in the window lands just inside it -- and the clipping is gone, which is
+  # the point: a clipped bar cannot be told from one twice its height, and the
+  # tallest bars are the ones being read.
+  #
+  # 5 rather than 6: at 6 the ceiling is 345 and 0.00% clips, but a quarter of
+  # the track height is then empty headroom that every other bar pays for. 5 is
+  # where this window stops clipping with nothing to spare.
+  #
+  # The cost is at the other end of the zoom. The ceiling scales linearly with N,
+  # so everything at whole-chromosome zoom is drawn 3/5 the height it was -- that
+  # view was already compressed, and this compresses it further. `local` would
+  # frame every gene-scale window perfectly and is tempting for that reason, but
+  # it fails HARD rather than softly: one pileup bin in view blanks the entire
+  # track, where a raised sigma only shortens it. Raising N is the knob; the
+  # schema default is 3 and the value lives on the display as `numStdDev`.
+  #
+  # The one thing this gives up: the two tracks scale INDEPENDENTLY, where the
+  # old fixed axis was shared. At whole-chromosome zoom that is a 3.7x difference
+  # (1300 against 350), so a bar in the forward track is not the same height as a
+  # bar of the same depth in the reverse track -- read the [0-N] label drawn at
+  # the right of each track, which the display prints for exactly this reason.
+  # Pinning them back to one shared scale is a one-line change to a
+  # fixed minScore/maxScore, at the cost of the whole-genome view above.
+
+  - id: kuang2017_coverage_fwd
+    name: Read depth over meiosis, forward strand (+), per million reads — Kuang et al. 2017
+    type: MultiQuantitativeTrack
+    category: [Kuang et al. 2017, Coverage]
+    metadata: *kuang_metadata
+    adapter:
+      type: MultiWiggleAdapter
+      subadapters:
+        - type: BigWigAdapter
+          source: "0 h"
+          color: "#a6cee4"
+          bigWigLocation: data/external/kuang/coverage/meiosis_0h_fwd.bw
+        - type: BigWigAdapter
+          source: "2 h"
+          color: "#74b3d8"
+          bigWigLocation: data/external/kuang/coverage/meiosis_2h_fwd.bw
+        - type: BigWigAdapter
+          source: "4 h"
+          color: "#4695c8"
+          bigWigLocation: data/external/kuang/coverage/meiosis_4h_fwd.bw
+        - type: BigWigAdapter
+          source: "6 h"
+          color: "#2373b6"
+          bigWigLocation: data/external/kuang/coverage/meiosis_6h_fwd.bw
+        - type: BigWigAdapter
+          source: "8 h"
+          color: "#09529d"
+          bigWigLocation: data/external/kuang/coverage/meiosis_8h_fwd.bw
+        - type: BigWigAdapter
+          source: "10 h"
+          color: "#08306b"
+          bigWigLocation: data/external/kuang/coverage/meiosis_10h_fwd.bw
+    displays:
+      - type: MultiLinearWiggleDisplay
+        height: 300
+        autoscale: localsd
+        numStdDev: 5
+
+  - id: kuang2017_coverage_rev
+    name: Read depth over meiosis, reverse strand (-), per million reads — Kuang et al. 2017
+    type: MultiQuantitativeTrack
+    category: [Kuang et al. 2017, Coverage]
+    metadata: *kuang_metadata
+    adapter:
+      type: MultiWiggleAdapter
+      subadapters:
+        - type: BigWigAdapter
+          source: "0 h"
+          color: "#a6cee4"
+          bigWigLocation: data/external/kuang/coverage/meiosis_0h_rev.bw
+        - type: BigWigAdapter
+          source: "2 h"
+          color: "#74b3d8"
+          bigWigLocation: data/external/kuang/coverage/meiosis_2h_rev.bw
+        - type: BigWigAdapter
+          source: "4 h"
+          color: "#4695c8"
+          bigWigLocation: data/external/kuang/coverage/meiosis_4h_rev.bw
+        - type: BigWigAdapter
+          source: "6 h"
+          color: "#2373b6"
+          bigWigLocation: data/external/kuang/coverage/meiosis_6h_rev.bw
+        - type: BigWigAdapter
+          source: "8 h"
+          color: "#09529d"
+          bigWigLocation: data/external/kuang/coverage/meiosis_8h_rev.bw
+        - type: BigWigAdapter
+          source: "10 h"
+          color: "#08306b"
+          bigWigLocation: data/external/kuang/coverage/meiosis_10h_rev.bw
+    displays:
+      - type: MultiLinearWiggleDisplay
+        height: 300
+        autoscale: localsd
+        numStdDev: 5

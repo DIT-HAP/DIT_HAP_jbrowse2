@@ -103,13 +103,15 @@ data/            built artefacts, committed (the deployed site never
   assembly/        bgzipped FASTA + .fai + .gzi
   annotation/      bgzipped GFF3 + .tbi
   tracks/          one BED (bgzip + tabix) per dataset / quantity / time point
-  external/        mirrored third-party datasets (the Kuang et al. BAMs)
+  external/        mirrored third-party datasets (the Kuang et al. BAMs),
+                   plus external/kuang/coverage/ -- BigWigs derived from them
 scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json
   10_assembly.sh   reference layer
   15_external.sh   mirror third-party datasets
   20_tracks.py     release tables -> data/tracks/*.bed.gz
+  25_kuang_coverage.py  mirrored BAMs -> data/external/kuang/coverage/*.bw
   serve.py         local preview server (Range-capable; see below)
   check_site.py    headless end-to-end check
   99_assemble_site.sh  site/, including the search index
@@ -134,6 +136,10 @@ DIT_HAP_snakemake  ──┐
                      ├─►  scripts/20_tracks.py ─►  data/tracks/*.bed.gz (+ .tbi)
 PomBase release    ──┘                           data/assembly/, data/annotation/
 PomBase external   ──►  scripts/15_external.sh ─►  data/external/kuang/*.bam (+ .bai)
+                                                 │            │
+                                                 │            └─► scripts/25_kuang_coverage.py
+                                                 │                     │
+                                                 │                     └─► coverage/*.bw
                                                  │
                             config/*.yaml  ──────┼─►  scripts/lib/yamlspec.py
                                                  │            │
@@ -151,10 +157,10 @@ directory can shadow the imports).
 ## Tracks
 
 One track per dataset, quantity and time point — 29 of them — plus the reference
-gene track and six mirrored external tracks, 36 in all. Every one is added from
-the track selector, grouped first by dataset, then by `Curve fit` (the DR and DL
-parameters) or `LFC` (per time point). The DIT-HAP tracks are built from the
-release tables:
+gene track, six mirrored external tracks and two coverage time-series tracks for
+those: 38 in all. Every one is added from the track selector, grouped first by
+dataset, then by `Curve fit` (the DR and DL parameters) or `LFC` (per time
+point). The DIT-HAP tracks are built from the release tables:
 
 | source | column | track |
 | --- | --- | --- |
@@ -183,11 +189,16 @@ each fails silently:
   the `TTAA` motif occupies `[Coordinate-4, Coordinate)`. Pulling those four bases
   out of the shipped FASTA returns `TTAA` for 96.2% of sampled rows — the same
   share as the `Target` column — where a 1-based reading scores 1.3%.
-- **`minScore`/`maxScore` are honoured**, even though the vendored display
-  defaults to `autoscale: local`. Rendering one BED under `-2.2..1.1` and again
-  under `-100..100` gives a scattered cloud and a flat line. The ranges are fixed
-  and shared across datasets so time points and datasets can be compared by eye;
-  points outside the domain clamp to the edge rather than erroring.
+- **`minScore`/`maxScore` replace the data-derived domain; they do not clamp it.**
+  The display builds its domain in `getNiceDomain({domain, bounds})`, where
+  `domain` is the visible region's stats and `bounds` is `[minScore, maxScore]`,
+  and a bound wins outright: `if (r !== undefined) l = r`. d3's `.nice()` then
+  rounds the result outward, which is where a configured `-12..3` becomes the
+  `[-12, 4]` drawn on screen. Leave both unset and the domain follows the data
+  instead — the schema defaults are `Number.MIN_VALUE`/`MAX_VALUE` and
+  `getNiceDomain` treats those two sentinels as "unset". The ranges here are
+  fixed and shared across datasets so time points and datasets can be compared
+  by eye: LFC `-12..3`, DL `-1..16`, DR `-2..0.5`.
 - **`strand` reaches the renderer as the number `1`/`-1`**, not `'+'`/`'-'`, so
   the colour expression compares against numbers. Comparing against characters
   paints every point the same colour, with no error.
@@ -196,6 +207,168 @@ each fails silently:
   never show "Zoom in to see features" and draw at any zoom. At whole-genome zoom
   each enabled track downloads its entire BED — 18 tracks at once moved 24.9 MB —
   where at gene scale the same tracks fetch a few kB each.
+
+### The strand key on the manhattan tracks
+
+Every DIT-HAP track colours its points by insertion strand:
+
+```yaml
+renderers:
+  LinearManhattanRenderer:
+    color: "jexl:get(feature,'strand')==1?'darkred':'darkblue'"
+```
+
+and nothing on screen said which colour was which. The renderer cannot say it: its
+config schema has exactly one slot, `color`, and the vendored bundle contains no
+`fillText` call at all.
+
+So `plugins/gwas-chrome.js` draws a small `+ forward` / `− reverse` key in the
+top-right corner of every manhattan track, by wrapping the display's React
+component. That wrap is safe because the vendored plugin registers **core's own**
+`LinearWiggleDisplayReactComponent` for this display — it reaches into the
+`WigglePlugin` and takes the component out — so what gets wrapped is the component
+every wiggle track in the app renders through, not something the GWAS plugin owns.
+The wrapper adds one positioned `div` around it and a sibling for the key; it does
+not resize or restyle anything.
+
+`+` is darkred because the BED parser in the app bundle reads the strand column as
+`"+"===d?1:"-"===d?-1` and the jexl above tests `==1`. That was checked rather than
+reasoned about: filtering the shipped BED down to its `+` rows and rendering that
+file alone paints a solid red track, and the `-` rows paint a solid blue one. A key
+that is backwards is worse than no key.
+
+The key is `pointer-events: none`, so it does not swallow the mousemove driving the
+feature tooltip in the corner it sits in.
+
+### Reading a time course: the multi-source tracks
+
+The per-time-point tracks show one time point each. The strand split on the Kuang
+coverage — [below](#coverage-over-the-kuang-time-course) — is the one place a
+multi-source track earns its keep, and it is two tracks there rather than one for
+the reason given in that section.
+
+One `MultiQuantitativeTrack` per dataset, holding every LFC time point of that
+dataset as a source, was built and then **removed by decision** once the two forms
+had been compared. It is recorded here because it was measurable, not because it
+might come back.
+
+It read the **same BED files** as the manhattan tracks, as `BedTabixAdapter`
+subadapters of a `MultiWiggleAdapter`, so the two forms could not drift apart —
+`source` and `color` are not slots on `BedTabixAdapter`: they are read off the
+subadapter config by `MultiWiggleAdapter.getSources()`, which spreads every key
+except `type` into the source object the display gets. That works only because
+`subadapters` is a `frozen` slot, the config staying a plain object rather than
+becoming an MST model with a schema to check it against, and it means a
+`BedTabixAdapter` is being used where a wiggle adapter is expected, tolerated only
+because `MultiWiggleAdapter` never inspects its subadapters' types.
+
+What it looked like, since that is the part worth keeping: an LFC row is one
+insertion with one score, drawn by the multi-source form as a line through points
+that are one base wide at 100 bp spacing, so the lane reads as a picket fence of
+vertical strokes. The manhattan tracks draw the same numbers as points, where a
+dense locus reads as density and an outlier reads as an outlier.
+
+There is no BigWig alternative either, because there cannot be one: two insertions
+share a coordinate and differ only by strand (`I 12726 12727 12726+ … +` and
+`… 12726- … -`), and BigWig forbids overlapping intervals, so the strand split the
+BED carries is unrepresentable in it.
+
+### Coverage over the Kuang time course
+
+The six Kuang tracks are BAMs, and a BAM is not quantitative signal, so there is
+nothing for a `MultiQuantitativeTrack` to plot directly. `scripts/25_kuang_coverage.py`
+reduces each BAM to one mean-depth value per 100 bp bin and writes **twelve**
+BigWigs — one per time point per strand — which become the six sources of each of
+**two** tracks, `Read depth over meiosis, forward strand (+)` and `reverse strand (-)`.
+
+Two tracks rather than one holding all twelve sources, because the two are read
+*against* each other rather than as a series: the question a strand split answers is
+whether a locus is transcribed from the strand it should be, and in one twelve-row
+lane that comparison is across the middle of a very tall track. The same ramp is
+shared, so 2 h is the same colour in both and a bar can be compared with the one in
+the track above it without consulting a key.
+
+The ramp is ColorBrewer's Blues, palest at 0 h and darkest at 10 h, so it reads as
+the time course by lightness alone and survives a greyscale print. It is sampled
+over 0.35..1.0 of the range rather than all of it, because the ramp's own light end
+(`#f7fbff`) is invisible against this page. Note the direction is the reverse of the
+viridis ramp these tracks first shipped with, which ran dark at 0 h to light at
+10 h — same data either way, opposite reading.
+
+Five things there were settled against the data:
+
+- **BigWig, not bedGraph.** The bedGraph version is what this started as, and it
+  does not render. A single bedGraph behind a plain wiggle track shows "Zoom in to
+  see features or force load" at whole-genome zoom, because 126,317 features over
+  12.6 Mb trips the density guard; the same six behind a `MultiWiggleAdapter` give
+  an **empty lane with nothing in the console**, and the tab then crashes. BigWig
+  carries its own zoom levels, so a whole-genome view reads a few thousand reduced
+  points instead of 758k features.
+- **Split by strand.** A bulk depth curve says nothing about which strand the
+  transcripts came from, and in a meiosis time course that is the point — antisense
+  transcription at a locus is invisible in the sum. Only one of the two directions
+  is measured: `samtools depth` in samtools 1.14 offers only `-g` and `-G`, which
+  *remove* and *add* flags to its default filter, with no "include only" form. So
+  the forward strand is selected directly (`-G 0x10`) and the reverse strand is
+  `total − forward`. That is exact arithmetic, not an approximation: depth counts
+  reads over a position and every read is on exactly one strand, so on hour 0
+  58,753 + 58,744 = 117,497, to the read. It also halves the number of `samtools
+  depth` passes.
+- **Normalised to reads per million.** The six libraries are not equally deep —
+  mapped reads run 117,497 (0 h) to 210,499 (8 h), a 1.8× spread. Plotted raw, 8 h
+  would sit on top at every locus in the genome, which is the library, not the
+  meiosis. Both directions share the total's denominator, so the two still sum to
+  the unsplit value and the six hours stay comparable.
+- **Binned to 100 bp.** `samtools depth -aa` emits one line per base — 12.6 M lines
+  and 161 MB per sample, about a gigabyte across the six. At 100 bp the twelve files
+  total 9 MB, and the bin is well under the ~1.4 kb of a typical S. pombe gene.
+- **The axis autoscales, and has to.** Across all twelve files the median bin is
+  0.1, the 90th percentile ~80, and the maximum 129,470 — a pileup of reads inside
+  200 bp of chromosome I near `isp3`. No fixed axis serves that: one covering the
+  pileup compresses every gene into the bottom pixel, one set to the bulk clips it.
+  These tracks carried a fixed `0..300` until the alternative was measured against
+  it. They now carry `autoscale: localsd` — mean ± Nσ over the visible region, not
+  the default `local`, which uses the region's min/max and so lets the pileup set
+  the domain on its own. Measured on the built site with both tracks on, at 20 kb:
+  fwd `[0-200]`, rev `[0-1200]`. At whole-chromosome: `[0-1300]` and `[0-350]`,
+  where plain `local` gave `[0-130000]` and `[0-20000]` — a flat line at both.
+
+  **N is 5, not the default 3**, and that was raised for the reason these tracks
+  exist. At 3σ the ceiling lands *below* the top of the data — at
+  `I:3,090,000-3,110,000` the forward track's mean is 24.0 and σ is 53.4 against a
+  max of 294, so mean+3σ is 184 and 3.81 % of bins clear it — and the renderer
+  marks every bar clamped at the ceiling with a 1px red *clip marker*. A clipped
+  bar cannot be told from one twice its height, and the tallest bars are the ones
+  being read. At 5σ the ceiling is 291, the tallest bar in that window lands just
+  inside it, and the clip markers there go from 674 pixels to zero. 6σ would also
+  clear it (345) but leaves a quarter of the track empty that every other bar pays
+  for. The cost is at the other end: the ceiling scales linearly with N, so
+  whole-chromosome zoom draws everything 3/5 the height it did — `[0-2200]` where
+  it was `[0-1300]`, compressed but still legible. `local` would frame every
+  gene-scale window perfectly and is tempting for that reason, but it fails *hard*
+  rather than softly: one pileup bin in view blanks the whole track.
+
+  The other cost is that the two strand tracks scale independently, where the
+  shared fixed axis held them together; each prints its own `[0-N]` label for that
+  reason.
+
+One more was found by failing rather than by reasoning: the two passes must run
+`samtools depth -aa`, not `-a`. `-a` means "all positions of a reference that has
+any read at all", so a sequence whose reads are all on the reverse strand drops out
+of the forward pass *entirely*. Measured on hour 0, `-a` gives 12,631,379 lines
+unfiltered but 12,611,251 with `-G 0x10`, while `-aa` gives 12,631,379 either way.
+The script therefore asserts that the two passes agree on the bin set before
+subtracting, because otherwise the difference silently produces plausible-looking
+numbers instead of an error.
+
+The denominator is `samtools view -c -F 0x704` (`UNMAP|SECONDARY|QCFAIL|DUP`),
+which is the filter `samtools depth` applies by default, read off its own `--help`
+— so the numerator and denominator cannot disagree about which reads count. It is
+also what the earlier `-F 0x904` form resolved to on this data, 117,497 either way,
+because these GMAP alignments carry no QCFAIL, DUP or SUPPLEMENTARY records.
+
+This is the only stage that needs `pyBigWig` (`conda install -c bioconda pybigwig`),
+and it runs under `./build.sh data` only; CI assembles the site and never gets here.
 
 ### External tracks: Kuang et al. 2017
 
@@ -311,13 +484,18 @@ axis either; `BaseLinearDisplay` offers only `maxFeatureScreenDensity`,
 `maxScore`, `numStdDev`, `scaleType` and `inverted`. Track height is not a gate
 either: it changes which ticks are drawn, not whether the bar is.
 
-So it takes a plugin. `plugins/gwas-axis.js` is ~30 lines of plain JS with no
-build step, and it overrides that one getter through the public
-`Core-extendPluggableElement` extension point — the same mechanism core plugins
-use on each other, and the same shape core's own handlers use. The vendored
-bundle is not patched: it is still byte-for-byte upstream, and
-`scripts/99_assemble_site.sh` copies `vendor/plugins/` and `plugins/` side by
-side into `site/plugins/`.
+So it takes a plugin. `plugins/gwas-chrome.js` is plain JS with no build step, and
+it overrides that one getter through the public `Core-extendPluggableElement`
+extension point — the same mechanism core plugins use on each other, and the same
+shape core's own handlers use. The same handler adds all four pieces of chrome
+this site needs: the getter for the axis, the
+[strand key](#the-strand-key-on-the-manhattan-tracks) wrapped around the display's
+React component, and the [line at y = 0](#the-line-at-y--0) and the
+[threshold at y = −1](#the-threshold-at-y--1) drawn by the renderer. The vendored
+bundle is not patched: it is
+still byte-for-byte upstream, and `scripts/99_assemble_site.sh` copies
+`vendor/plugins/` and `plugins/` side by side into `site/plugins/`, emptying that
+directory first so a renamed plugin cannot linger in the built site.
 
 Claiming `graphType` is less of a lie than it looks. For a single-source wiggle
 display it is read in exactly three places: the axis condition above, the SVG
@@ -325,6 +503,75 @@ export's copy of it, and the track menu, where it gates "Show inverted" and
 "Show cross hatches". The renderer never reads it. And core already treats the
 flag as "this display wants a y-axis" rather than "this is a line plot":
 `SNPCoverageDisplay` declares `get graphType() { return true }` outright.
+
+### The line at y = 0
+
+`DR`, `DL` and `LFC` are all signed, and sign is usually the question being asked
+of them: above zero the insertion is enriched, below it depleted. The renderer
+draws no horizontal reference of any kind — it has a cross-hatch pass, but that
+only runs when `displayCrossHatches` is set, and it is off by default — so the
+sign boundary is wherever the reader judges y = 0 to be from the axis. The third
+piece of chrome draws it, by wrapping the renderer's `draw` so the line goes on
+last, over the points rather than under them.
+
+Where y = 0 falls is read from the props the renderer is already handed, not
+recomputed from `minScore`/`maxScore`. That distinction matters: the display
+widens the configured domain, and an LFC track set to `-12..3` is drawn on a
+measured `[-12, 4]`. The two props used are `scaleOpts.domain`, the axis domain,
+and `ticks.range`, which is `[y(domain[0]), y(domain[1])]` — together the whole
+transform for a linear scale, which is the only scale these tracks can use, the
+values being negative and a log scale unavailable. Both arrive per block, so
+each block gets its line in its own place.
+
+**Dashed, not solid.** Three reasons, in order of weight:
+
+* The line is an annotation, and a dashed rule is the convention for one. Solid,
+  it reads as data — or worse, as the axis.
+* The LFC cloud is densest where it crosses zero, so a solid line is buried
+  exactly where it is most wanted. Dashes stay legible through it.
+* The renderer's own gridlines are solid and are drawn from `ticks.values`, which
+  includes zero. A solid line in a different colour would be two lines a pixel
+  apart the moment someone switches on "Show cross hatches" from the track menu.
+
+`ZERO_DASH` and `ZERO_COLOR` at the top of `plugins/gwas-chrome.js` are the two
+constants to change if that call is ever revisited. The line is also skipped
+unless zero is *strictly* inside the domain, so a track scaled entirely above or
+below zero gets no line pinned to its edge claiming to be the sign boundary.
+
+### The threshold at y = −1
+
+`DR` is the depletion rate, and −1 is the cut for a severe phenotype: below it the
+insertion is depleted hard enough to call. That cut is a judgement rather than
+arithmetic, and nothing in the track data says where it is, so the plugin draws
+it — orange, dashed, on the DR tracks only.
+
+**Only the DR tracks.** The renderer is shared by all 29 `GWASTrack`s, and −1
+means a different thing on each: a log2 fold change of −1 is not the same claim
+as a depletion rate of −1, and `DL` is not on that scale at all. A line drawn
+unconditionally would be asserting it on all three. There is nothing in the
+renderer's own config to key off — its schema has exactly one slot, `color` — and
+the display's config is not among the props, but `props.adapterConfig` is, and it
+names the file being drawn. Every DR track reads
+`data/tracks/<dataset>/DR.bed.gz`, so the plugin keys a small table on that
+basename. That also survives track renames, display renames and session changes,
+none of which a `displayId` would.
+
+**Orange, not red.** Red is the obvious colour for a severity threshold and the
+one that does not work: the forward-strand points are already `darkred`, and −1
+sits at the bottom of the cloud where those points are exactly what is being
+read, so
+a red line lands on top of them. In CIE76 ΔE, pure red `#d62728` measures 23.7
+from `darkred` — the same colour to the eye. Magenta and purple are no better at
+the other end, at ΔE 50.0 and 34.6 from the reverse strand's `darkblue`.
+`#e08214` clears everything on the track: 48.1 from `darkred`, 77.3 from the grey
+zero line, 81.2 from the white background. Orange is also the conventional
+threshold hue, which is the meaning wanted.
+
+**Longer dashes than the zero line** — `[9, 4]` against `[4, 3]`. Both are
+annotations, but not the same kind: y = 0 is arithmetic, y = −1 is a chosen cut.
+Carrying that difference in the pattern as well as the colour keeps it through a
+greyscale print or a colour-blind reader, and stops the threshold reading as
+being as absolute as zero. `THRESHOLD_COLOR` and `THRESHOLD_DASH` are the knobs.
 
 ### Why the plugin is not simply upgraded to a version that has it
 
@@ -351,9 +598,69 @@ from `createPluggableElements`. 2.1.6 replaced that with an inlined renderer and
 so needs nothing from the host but `LinearWiggleDisplayReactComponent`, which
 4.3.0 does export. Confirmed by swapping the bundle in and loading it.
 
-So the plugin stays at 2.1.6 and `plugins/gwas-axis.js` restores the one getter
+So the plugin stays at 2.1.6 and `plugins/gwas-chrome.js` restores the one getter
 #24 dropped. If the plugin is ever bumped, re-check this file: the override is
-harmless if `graphType` comes back, but it would then be redundant.
+harmless if `graphType` comes back, but it would then be redundant. The strand key
+would survive a bump either way — it wraps the display's React component, and does
+not depend on anything the plugin omits.
+
+### Why the plugin is still a plugin at all
+
+Short answer: because the built-in `GWASTrack` is real and works, is pinned to a
+version this site could move to, and would still cost a rewrite of every track
+below it. It was tried, and the decision was to stay on 4.3.0 and keep the plugin.
+The measurements are here so the next person does not have to redo them.
+
+**The built-in exists, in 5.0.** The GWAS track has been upstreamed into JBrowse
+itself: `plugins/gwas` is a package in `GMOD/jbrowse-components`, and the demo
+config on `jbrowse.org/code/jb2/main/` declares `"plugins": null` while still
+using `type: GWASTrack` and `LinearManhattanDisplay`. Grep confirms the split —
+over the v4.3.0 bundle, `LinearManhattanDisplay`, `GWASTrack`, `GWASAdapter` and
+even the bare string `Manhattan` return **zero hits** across all 433 JS files,
+while `MultiQuantitativeTrack` and `MultiLinearWiggleDisplay` are both present; over
+`5.0.0-beta.13` they return 8, 6, 7 and present.
+
+**And it is pinnable, which is the part that is easy to get wrong.**
+`jbrowse create --branch <x>` resolves to
+`https://s3.amazonaws.com/jbrowse.org/code/jb2/<x>/jbrowse-web-<x>.zip`, and that
+bucket is keyed by **git tag**, so every tag has an immutable build even though
+GitHub has no *release* for the 5.0 pre-releases (tags only, so `--tag` cannot
+find one):
+
+```
+jb2/v5.0.0-beta.13/jbrowse-web-v5.0.0-beta.13.zip   200, 25.8 MB, 2026-10-05
+jb2/v5.0.0-beta.12/…                                200
+jb2/v4.3.0/…                                        200
+```
+
+Probing only the obvious names (`5.0`, `v5.0`, `next`, `release`) 403s and makes
+this look unpinnable. It is not.
+
+**It runs.** A 5.0.0-beta.13 site was assembled from this repository's own
+`config.json` and `data/` with `plugins` emptied, and `check_site.py` passed all
+four passes — every track present, sequence clean, search working, no console
+errors. The gene tracks came out *better*: 5.0 drops the density guard, so
+`pombe_genes` draws at 1 Mbp/px where 4.3.0 shows "Zoom in to see features or
+force load".
+
+**What it would cost.** Three things, all measured on that build:
+
+- The 29 `GWASTrack` displays render **blank**. The plugin-era `renderers:` block
+  is not honoured and every feature is skipped — `14,177 of 14,177 skipped` on a
+  300 kb window of `hd_dit_hap_lfc_yes1`. The fix is `scoreColumn: "score"` on the
+  adapter plus a `marks`/`scales` display block; verified working, but it is 29
+  entries rewritten against an API with no migration shim.
+- The multi-source tracks lose their axis and colour. 5.0 ignores
+  `minScore`/`maxScore` on this display — measured when those tracks carried a
+  fixed `0..500`, which the coverage autoscaled away from to 2000 — and whether
+  it honours the `autoscale: localsd` they now carry instead is **unmeasured**.
+  5.0 replaces the five `Multi*Renderer` types with `rows`/`color`/`scales` —
+  there is a migration shim for `defaultRendering: multirowxy`, but `color.field`
+  only accepts `"score"`, so a colour per source cannot be expressed that way.
+- The plugin and this file's axis override both become redundant.
+
+None of that is a reason not to move eventually. It is a reason not to move to a
+**beta** to save a plugin.
 
 ## Deployment
 

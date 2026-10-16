@@ -283,18 +283,29 @@ def main() -> int:
 #
 #   * Round outward, never inward. Each bound sits just past the measured
 #     extreme, so the extreme lands visibly inside the track instead of on its
-#     border. DR is left at its old value: it already covered -2.09..+1.00 with
-#     room to spare.
+#     border. LFC follows this.
 #
-#     DL is the one deliberate exception. Its ceiling is 16.0 against a measured
-#     +16.11, so 4,055 points (0.94%) clamp to the top edge. Tightening it to
-#     16.2 would clear them, and it is a one-character change -- it is left as is
-#     because 16.0 is what the axis was reviewed and chosen at.
+#     DR and DL are the two deliberate exceptions, and both for the same reason:
+#     the axis is set to the BULK of the cloud, not to its extremes.
+#
+#     DR is -2.0..0.5 against a measured -2.09..+1.00, so it no longer covers
+#     the data at all. It did -- -2.2..1.1 cleared the measured range with room
+#     to spare -- until it was tightened by hand, because the cloud is dense
+#     between roughly -1.5 and +0.3 and the old bounds spent a third of the
+#     height on empty space. The cost is 42 points out of 432,083 (0.0097%):
+#     2, 2, 33 and 3 above 0.5 in the four datasets, and 2 below -2.0 in
+#     hd_dit_hap alone. Every dataset's maximum is exactly 1.000, so what clips
+#     at the top is the saturated "fully depleted" end and nothing else.
+#
+#     DL is 16.0 against a measured +16.11, so 4,055 points (0.94%) clamp to the
+#     top edge. Tightening it to 16.2 would clear them, and it is a
+#     one-character change -- it is left as is because 16.0 is what the axis was
+#     reviewed and chosen at.
 #
 # The comment above is the reason the numbers are what they are; if a dataset is
 # added with a wider spread, these are the numbers to move.
 AXIS = {
-    "DR": (-2.2, 1.1),
+    "DR": (-2.0, 0.5),
     "DL": (-1.0, 16.0),
     "LFC": (-12.0, 3.0),
 }

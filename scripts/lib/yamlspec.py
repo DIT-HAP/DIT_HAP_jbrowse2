@@ -322,15 +322,16 @@ def main() -> int:
         "tracks": tracks,
         # Loaded in order, both from site/plugins/. The second one extends the
         # first: it overrides a getter on LinearManhattanDisplay so core draws
-        # the y-axis scale bar that the plugin's renderer does not. See
-        # plugins/gwas-axis.js for why that is a plugin and not a config slot.
+        # the y-axis scale bar the plugin's renderer does not, and wraps the
+        # display's component to draw the strand key. See plugins/gwas-chrome.js
+        # for why either of those is a plugin and not a config slot.
         #
         # `name` is not a label: the loader looks for a global called
         # `JBrowsePlugin<name>`, so these two strings and the two files' global
         # names have to agree.
         "plugins": [
             {"name": "GWAS", "url": "plugins/jbrowse-plugin-gwas.umd.js"},
-            {"name": "GWASAxis", "url": "plugins/gwas-axis.js"},
+            {"name": "GWASChrome", "url": "plugins/gwas-chrome.js"},
         ],
         # Global plugin configuration. Applied by JBrowse to every view, not
         # just the default session's -- see config/session.yaml.

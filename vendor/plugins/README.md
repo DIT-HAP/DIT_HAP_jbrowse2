@@ -7,7 +7,7 @@ array names them by URL.
 
 Nothing in here is modified. If one of these needs a behaviour change, add a
 plugin of our own under `plugins/` that extends it through an extension point —
-see `plugins/gwas-axis.js` for the pattern and the reasoning.
+see `plugins/gwas-chrome.js` for the pattern and the reasoning.
 
 ## jbrowse-plugin-gwas.umd.js
 

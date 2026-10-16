@@ -37,7 +37,7 @@ session:
   #
   # The track selector is the only way to switch on a DIT-HAP track, and they
   # are all behind a hierarchical list, so a visitor who does not know it is
-  # there sees one gene track and no hint that 35 more exist. Opening it by
+  # there sees one gene track and no hint that 37 more exist. Opening it by
   # default is the difference between a landing page and a dead end.
   #
   # `view` is a view id from `views:` below. A widget naming a view that does
