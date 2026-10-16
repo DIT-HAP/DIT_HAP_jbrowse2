@@ -829,7 +829,7 @@ tracks:
           bigWigLocation: data/external/kuang/coverage/meiosis_10h_fwd.bw
     displays:
       - type: MultiLinearWiggleDisplay
-        height: 300
+        height: 100
         autoscale: localsd
         numStdDev: 5
 
@@ -867,6 +867,6 @@ tracks:
           bigWigLocation: data/external/kuang/coverage/meiosis_10h_rev.bw
     displays:
       - type: MultiLinearWiggleDisplay
-        height: 300
+        height: 100
         autoscale: localsd
         numStdDev: 5

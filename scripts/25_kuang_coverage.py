@@ -469,7 +469,7 @@ def emit_tracks(produced: list[dict]) -> str:
 {subs}
     displays:
       - type: MultiLinearWiggleDisplay
-        height: 300
+        height: 100
         autoscale: {AUTOSCALE}
         numStdDev: {NUM_STD_DEV}
 """)
