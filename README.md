@@ -103,8 +103,9 @@ data/            built artefacts, committed (the deployed site never
   assembly/        bgzipped FASTA + .fai + .gzi
   annotation/      bgzipped GFF3 + .tbi
   tracks/          one BED (bgzip + tabix) per dataset / quantity / time point
-  external/        mirrored third-party datasets (the Kuang et al. BAMs),
-                   plus external/kuang/coverage/ -- BigWigs derived from them
+  external/        mirrored third-party datasets (Kuang et al. BAMs,
+                   PomBase predicted TATA boxes), plus external/kuang/coverage/
+                   -- BigWigs derived from them
 scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json
@@ -135,7 +136,7 @@ DIT_HAP_snakemake  ──┐
   release/insertion_level/*.tsv
                      ├─►  scripts/20_tracks.py ─►  data/tracks/*.bed.gz (+ .tbi)
 PomBase release    ──┘                           data/assembly/, data/annotation/
-PomBase external   ──►  scripts/15_external.sh ─►  data/external/kuang/*.bam (+ .bai)
+PomBase external   ──►  scripts/15_external.sh ─►  data/external/  (kuang, tf_binding_sites)
                                                  │            │
                                                  │            └─► scripts/25_kuang_coverage.py
                                                  │                     │
@@ -157,8 +158,8 @@ directory can shadow the imports).
 ## Tracks
 
 One track per dataset, quantity and time point — 29 of them — plus the reference
-gene track, six mirrored external tracks and two coverage time-series tracks for
-those: 38 in all. Every one is added from the track selector, grouped first by
+gene track, six mirrored Kuang tracks, two coverage time-series tracks for them,
+and a mirrored predicted-TATA-box track: 39 in all. Every one is added from the track selector, grouped first by
 dataset, then by `Curve fit` (the DR and DL parameters) or `LFC` (per time
 point). The DIT-HAP tracks are built from the release tables:
 
@@ -423,6 +424,24 @@ for 5.29 MB and offers "zoom in or force load" instead of rendering. That is
 stock JBrowse behaviour, and FORCE LOAD resolves it. Mirroring does not remove
 that guard — it counts records, not seconds — but the same 5.29 MB now arrives
 over loopback or a CDN instead of a 100 kB/s link.
+
+### Predicted TATA boxes (PomBase)
+
+One `FeatureTrack` over PomBase's predicted TATA boxes
+(`internal_datasets/tf_binding_sites/pombe_binding_sites_TATA_box.sorted.bed.gz`),
+mirrored into `data/external/tf_binding_sites/` by the same stage as the Kuang
+data. It holds 23,247 seven-base intervals on both strands across the six
+assembly sequences. The BED is upstream's own — unlike the DIT-HAP tracks it did
+not come out of pysam — so it is used as shipped: 0-based half-open, with the
+strand in column 6 and `TATA box` in the name column, which is what the renderer
+labels.
+
+It uses a `BedTabixAdapter` (bgzip + tabix, as PomBase publishes it) and the
+stock `LinearBasicDisplay` at 80 px. Being a feature track, it keeps the
+`regionTooLarge` guard: the whole-genome default view shows "Zoom in to see
+features or force load" for it just like `pombe_genes`, while a 20 kb gene-scale
+window holds a few tens of intervals and draws normally. The track-selector
+category is `TF binding sites`, the same name PomBase uses for the directory.
 
 ## Gene search
 
@@ -709,3 +728,8 @@ here rather than only linked, so the tracks load at a usable speed. They remain
 their authors' data and are subject to whatever terms GSE79802 carries; the
 citation, sample and source URL are recorded on every track and in
 `config/external.yaml`.
+
+PomBase's predicted TATA box calls under `data/external/tf_binding_sites/` are
+redistributed for the same self-containment reason and remain subject to
+PomBase's terms. Their source URL and SHA-256 are recorded in
+`config/external.yaml` and the track's `metadata`.

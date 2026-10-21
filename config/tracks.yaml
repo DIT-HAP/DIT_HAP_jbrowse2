@@ -870,3 +870,37 @@ tracks:
         height: 100
         autoscale: localsd
         numStdDev: 5
+
+  # --------------------------------------- PomBase predicted TF binding sites
+  # Mirrored from PomBase's internal_datasets tree by scripts/15_external.sh;
+  # config/external.yaml records the upstream URL, byte count and SHA-256. As
+  # with the Kuang tracks above, the deployed site serves these bytes itself
+  # rather than reaching back to PomBase.
+  #
+  # The BED is upstream's own, so no coordinate conversion is applied -- unlike
+  # the DIT-HAP tracks, these intervals did not come out of pysam. It holds
+  # 23,247 seven-base rows, 0-based half-open and stranded, over the same six
+  # sequences as our assembly.
+  #
+  # A FeatureTrack keeps JBrowse's density guard (`regionTooLarge`), so at
+  # whole-genome zoom this reads "Zoom in to see features or force load" exactly
+  # like pombe_genes. That is expected, not a broken track; at gene scale the
+  # window holds tens of intervals and draws normally.
+  - id: pombase_tata_box
+    name: TF binding site - TATA box
+    type: FeatureTrack
+    category: [TF binding sites]
+    metadata:
+      data_type: TF binding sites
+      assay_type: predicted
+      comment: https://www.pombase.org/documentation/pombase-jbrowse-tracks
+      source: https://www.pombase.org/internal_datasets/tf_binding_sites/pombe_binding_sites_TATA_box.sorted.bed.gz
+    adapter:
+      type: BedTabixAdapter
+      bedGzLocation: data/external/tf_binding_sites/pombe_binding_sites_TATA_box.sorted.bed.gz
+      index:
+        indexType: TBI
+        location: data/external/tf_binding_sites/pombe_binding_sites_TATA_box.sorted.bed.gz.tbi
+    displays:
+      - type: LinearBasicDisplay
+        height: 80

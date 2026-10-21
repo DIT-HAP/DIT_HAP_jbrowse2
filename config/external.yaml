@@ -67,3 +67,24 @@ external:
       - name: rep2_meiosis_hour_10.sorted.bam.bai
         sha256: 645f131fc4747ccf8f07abae404adecc44ccc5303afa50d7b48b12345617ac3f
         bytes: 21808
+
+  # PomBase's predicted TF binding sites, from its internal_datasets tree. The
+  # TATA box calls are 23,247 seven-base intervals on both strands, across the
+  # same six sequences as our assembly.
+  #
+  # These are small (135 kB + a 6 kB index) and would fit through the 70-130 kB/s
+  # link in a second, but they are mirrored for the same reason as the BAMs
+  # above: data/ is the site's only data source, so the deployed site never
+  # reaches back to PomBase. `source` and `comment` on the track in
+  # config/tracks.yaml carry the attribution into "About this track".
+  tf_binding_sites:
+    label: PomBase predicted TF binding sites
+    dir: tf_binding_sites
+    base_url: https://www.pombase.org/internal_datasets/tf_binding_sites/
+    files:
+      - name: pombe_binding_sites_TATA_box.sorted.bed.gz
+        sha256: c76c76284b2fb16071b3eae33e7502d401fbb7a0f160b72a2def25706561a5d5
+        bytes: 135066
+      - name: pombe_binding_sites_TATA_box.sorted.bed.gz.tbi
+        sha256: c6fee3e2917793822d1e81d1eb823572d576eb7f89d064996a98258a229b75a8
+        bytes: 6186
