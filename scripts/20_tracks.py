@@ -45,7 +45,6 @@ import csv
 import os
 import pathlib
 import shutil
-import statistics
 import subprocess
 import sys
 import tempfile
