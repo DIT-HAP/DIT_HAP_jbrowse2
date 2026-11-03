@@ -904,3 +904,41 @@ tracks:
     displays:
       - type: LinearBasicDisplay
         height: 80
+
+  # ---------------------------------------------- Moro et al. 2021 uORFs
+  # Mirrored from PomBase's external_datasets tree by scripts/15_external.sh;
+  # config/external.yaml records the upstream URL, byte count and SHA-256. The
+  # GFF3 holds 12,165 uORF calls over chromosomes I-III, without attributes --
+  # upstream ships them unnamed, so the default renderer draws unlabelled
+  # boxes. GFF3 coordinates are 1-based inclusive and Gff3TabixAdapter converts
+  # them, so unlike the pysam-derived DIT-HAP BED tracks nothing is adjusted
+  # here.
+  #
+  # A FeatureTrack, so the same density guard applies as for pombe_genes and
+  # the TATA box track: whole-genome zoom asks to zoom in or force load, while
+  # gene scale draws normally.
+  - id: moro2021_uorf
+    name: Upstream Open Reading Frames - Moro et al. (2021)
+    type: FeatureTrack
+    category: [upstream ORF]
+    metadata:
+      first_author: Moro
+      pmid: "33992089"
+      data_type: upstream ORF
+      assay_type: ribosome profiling
+      growth_phase_or_response: vegetative growth
+      conditions: glucose MM (EMM), standard temperature
+      alleles: WT
+      background: h-
+      mutants: not applicable
+      study_id: 10.6084/m9.figshare.12320597.v2
+      source_url: https://www.pombase.org/external_datasets/Moro_2021_PMID_33992089/uORF_S_pombe_pmid_33992089.sorted.gff.gz
+    adapter:
+      type: Gff3TabixAdapter
+      gffGzLocation: data/external/moro2021/uORF_S_pombe_pmid_33992089.sorted.gff.gz
+      index:
+        indexType: TBI
+        location: data/external/moro2021/uORF_S_pombe_pmid_33992089.sorted.gff.gz.tbi
+    displays:
+      - type: LinearBasicDisplay
+        height: 80

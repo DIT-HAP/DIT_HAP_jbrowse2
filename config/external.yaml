@@ -88,3 +88,20 @@ external:
       - name: pombe_binding_sites_TATA_box.sorted.bed.gz.tbi
         sha256: c6fee3e2917793822d1e81d1eb823572d576eb7f89d064996a98258a229b75a8
         bytes: 6186
+
+  # Moro et al. 2021 upstream open reading frames, from PomBase's
+  # external_datasets tree. The GFF3 holds the uORF calls from ribosome
+  # profiling; the index is the one PomBase publishes alongside it.
+  moro2021:
+    label: Moro et al. 2021 upstream ORFs
+    dir: moro2021
+    base_url: https://www.pombase.org/external_datasets/Moro_2021_PMID_33992089/
+    citation: Moro et al. 2021, PMID 33992089
+    study: 10.6084/m9.figshare.12320597.v2
+    files:
+      - name: uORF_S_pombe_pmid_33992089.sorted.gff.gz
+        sha256: 7f8562319c8e6552a1941397fdcb62dda5f5e06c298fb98c9ec36c22f5811829
+        bytes: 76648
+      - name: uORF_S_pombe_pmid_33992089.sorted.gff.gz.tbi
+        sha256: 2e3843ec1d250465626f699721b4812611df726f8cc747ff54a1b8e670220553
+        bytes: 5598

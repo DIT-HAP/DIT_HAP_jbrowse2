@@ -104,8 +104,8 @@ data/            built artefacts, committed (the deployed site never
   annotation/      bgzipped GFF3 + .tbi
   tracks/          one BED (bgzip + tabix) per dataset / quantity / time point
   external/        mirrored third-party datasets (Kuang et al. BAMs,
-                   PomBase predicted TATA boxes), plus external/kuang/coverage/
-                   -- BigWigs derived from them
+                   PomBase predicted TATA boxes, Moro et al. uORFs), plus
+                   external/kuang/coverage/ -- BigWigs derived from them
 scripts/
   lib/common.sh    tool resolution and logging
   lib/yamlspec.py  config/*.yaml -> site/config.json
@@ -136,7 +136,8 @@ DIT_HAP_snakemake  ──┐
   release/insertion_level/*.tsv
                      ├─►  scripts/20_tracks.py ─►  data/tracks/*.bed.gz (+ .tbi)
 PomBase release    ──┘                           data/assembly/, data/annotation/
-PomBase external   ──►  scripts/15_external.sh ─►  data/external/  (kuang, tf_binding_sites)
+PomBase external   ──►  scripts/15_external.sh ─►  data/external/  (kuang, tf_binding_sites,
+                                                 │                  moro2021)
                                                  │            │
                                                  │            └─► scripts/25_kuang_coverage.py
                                                  │                     │
@@ -159,7 +160,8 @@ directory can shadow the imports).
 
 One track per dataset, quantity and time point — 29 of them — plus the reference
 gene track, six mirrored Kuang tracks, two coverage time-series tracks for them,
-and a mirrored predicted-TATA-box track: 39 in all. Every one is added from the track selector, grouped first by
+and two mirrored PomBase feature tracks (predicted TATA boxes and Moro et al.
+uORFs): 40 in all. Every one is added from the track selector, grouped first by
 dataset, then by `Curve fit` (the DR and DL parameters) or `LFC` (per time
 point). The DIT-HAP tracks are built from the release tables:
 
@@ -442,6 +444,21 @@ stock `LinearBasicDisplay` at 80 px. Being a feature track, it keeps the
 features or force load" for it just like `pombe_genes`, while a 20 kb gene-scale
 window holds a few tens of intervals and draws normally. The track-selector
 category is `TF binding sites`, the same name PomBase uses for the directory.
+
+### Upstream ORFs (Moro et al. 2021)
+
+One `FeatureTrack` over PomBase's copy of the ribosome-profiling uORF calls from
+Moro et al. 2021 (PMID 33992089), mirrored into `data/external/moro2021/` by the
+same stage. The GFF3 holds 12,165 `uORF` features over chromosomes I–III — the
+other three sequences carry no calls — and has an empty attribute column, so
+the renderer draws unlabelled boxes. GFF3 coordinates are 1-based inclusive and
+`Gff3TabixAdapter` converts them, so nothing is adjusted here, unlike the
+pysam-derived DIT-HAP tracks.
+
+It uses `LinearBasicDisplay` at 80 px and, being a feature track, keeps the
+`regionTooLarge` guard at whole-genome zoom. The track-selector category is
+`upstream ORF`, PomBase's own label; the study is deposited at
+`10.6084/m9.figshare.12320597.v2`.
 
 ## Gene search
 
@@ -733,3 +750,7 @@ PomBase's predicted TATA box calls under `data/external/tf_binding_sites/` are
 redistributed for the same self-containment reason and remain subject to
 PomBase's terms. Their source URL and SHA-256 are recorded in
 `config/external.yaml` and the track's `metadata`.
+
+Moro et al.'s uORF calls under `data/external/moro2021/` are redistributed on
+the same basis and remain subject to PomBase's terms; their source URL and
+SHA-256 are recorded in `config/external.yaml` and the track's `metadata`.
